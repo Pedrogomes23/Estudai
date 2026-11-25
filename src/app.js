@@ -29,7 +29,8 @@ export function createApp({ config, db }) {
       contentSecurityPolicy: {
         useDefaults: true,
         directives: {
-          'script-src': ["'self'"],
+          // ADICIONADO: https://esm.sh para permitir o carregamento da biblioteca do Supabase
+          'script-src': ["'self'", 'https://esm.sh'],
           'style-src': ["'self'", 'https://fonts.googleapis.com'],
           'font-src': ['https://fonts.gstatic.com'],
           // ATUALIZADO: Permite carregar imagens e conectar no Supabase
