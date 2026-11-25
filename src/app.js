@@ -32,10 +32,10 @@ export function createApp({ config, db }) {
           'script-src': ["'self'"],
           'style-src': ["'self'", 'https://fonts.googleapis.com'],
           'font-src': ['https://fonts.gstatic.com'],
-          'img-src': ["'self'", 'data:'],
-          'connect-src': ["'self'"],
+          // ATUALIZADO: Permite carregar imagens e conectar no Supabase
+          'img-src': ["'self'", 'data:', 'https://*.supabase.co'], 
+          'connect-src': ["'self'", 'https://*.supabase.co'],
           'frame-ancestors': ["'none'"],
-          // Em desenvolvimento (http://localhost) o upgrade para HTTPS quebraria o carregamento.
           'upgrade-insecure-requests': config.isProd ? [] : null,
         },
       },
@@ -45,7 +45,11 @@ export function createApp({ config, db }) {
   app.use(compression());
   if (config.logFormat) app.use(morgan(config.logFormat));
   app.use(cookieParser());
-  app.use(express.json({ limit: '10kb' }));
+  
+  // ATUALIZADO: Aumentado para 10mb (suficiente para o JSON com os links)
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
   app.use(sameOriginOnly(config.allowedOrigins));
   app.use(loadUser(sessions));
 

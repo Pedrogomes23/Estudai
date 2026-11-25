@@ -84,8 +84,10 @@ export const api = {
     create: (data) => request('POST', '/api/communities', { json: data }).then((r) => r.item),
     members: (id) => request('GET', `/api/communities/${id}/members`).then((r) => r.items),
     messages: (id) => request('GET', `/api/communities/${id}/messages`).then((r) => r.items),
-    send: (id, body) =>
-      request('POST', `/api/communities/${id}/messages`, { json: { body } }).then((r) => r.item),
+    send: (id, body, attachmentUrl = null, attachmentType = null) =>
+      request('POST', `/api/communities/${id}/messages`, { 
+        json: { body, attachmentUrl, attachmentType } 
+      }).then((r) => r.item),
     removeMessage: (id, messageId) => request('DELETE', `/api/communities/${id}/messages/${messageId}`),
     join: (id) => request('PUT', `/api/communities/${id}/membership`).then((r) => r.item),
     leave: (id) => request('DELETE', `/api/communities/${id}/membership`).then((r) => r.item),

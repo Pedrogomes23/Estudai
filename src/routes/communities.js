@@ -67,10 +67,11 @@ export function communitiesRouter({ db, config }) {
         ORDER BY owner DESC, cm.joined_at ASC, u.id ASC`,
       [communityId],
     );
+    
   const listMessages = (communityId) =>
     db.all(
       `SELECT * FROM (
-       SELECT m.id, m.body, m.created_at, m.user_id, u.name AS author
+       SELECT m.id, m.body, m.created_at, m.user_id, u.name AS author, m.attachment_url, m.attachment_type
          FROM community_messages m JOIN users u ON u.id = m.user_id
         WHERE m.community_id = $1
         ORDER BY m.id DESC LIMIT ${CHAT_PAGE}
@@ -79,7 +80,7 @@ export function communitiesRouter({ db, config }) {
     );
   const messageById = (id, communityId) =>
     db.get(
-      `SELECT m.id, m.body, m.created_at, m.user_id, u.name AS author
+      `SELECT m.id, m.body, m.created_at, m.user_id, u.name AS author, m.attachment_url, m.attachment_type
        FROM community_messages m JOIN users u ON u.id = m.user_id
       WHERE m.id = $1 AND m.community_id = $2`,
       [id, communityId],
@@ -107,6 +108,8 @@ export function communitiesRouter({ db, config }) {
     author: { id: row.user_id, name: row.author },
     mine: row.user_id === me,
     canDelete: row.user_id === me || isOwner,
+    attachmentUrl: row.attachment_url || null,
+    attachmentType: row.attachment_type || null,
   });
 
   const chatLimiter = config.rateLimit.enabled
@@ -214,10 +217,17 @@ export function communitiesRouter({ db, config }) {
   router.post('/:id/messages', chatLimiter, async (req, res) => {
     const id = parseId(req.params.id);
     const community = await loadAsMember(id, req.user.id);
-    const { body } = parse(schemas.message, req.body);
+    
+    // Aceita o texto e o arquivo
+    const { body, attachmentUrl, attachmentType } = req.body;
+    
+    if (!body && !attachmentUrl) {
+       return res.status(400).json({ error: { message: 'A mensagem ou o arquivo não pode estar vazio.' } });
+    }
+
     const { id: messageId } = await db.get(
-      'INSERT INTO community_messages (community_id, user_id, body) VALUES ($1, $2, $3) RETURNING id',
-      [id, req.user.id, body],
+      'INSERT INTO community_messages (community_id, user_id, body, attachment_url, attachment_type) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+      [id, req.user.id, body || '', attachmentUrl || null, attachmentType || null],
     );
     const row = await messageById(messageId, id);
     res.status(201).json({ item: toMessage(row, req.user.id, community.mine) });

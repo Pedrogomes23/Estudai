@@ -5,6 +5,13 @@ api.auth.me().catch(() => location.replace('login.html'));
 import { $, debounce, escapeHtml, ICON_DOWNLOAD, ICON_USERS, initTabs } from '../lib/dom.js';
 import { initSidebar, setSidebarUser } from '../lib/sidebar.js';
 
+// IMPORTANTE: Importando o Supabase Client para o upload de arquivos do chat
+// Se você já tem um arquivo de configuração do Supabase (ex: supabase.js), troque esta linha pelo import dele.
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const supabaseUrl = 'https://abozwskrdzmxljnjlaai.supabase.co'; // Substitua pelo seu Project URL
+const supabaseKey = 'sb_publishable_e3uyPCYDct4Xd_Qc7szWsw_yC73UEQq'; // Substitua pela sua chave anon public (encontrada no Project Settings > API)
+const supabase = createClient(supabaseUrl, supabaseKey);
+
 const state = { me: null, materials: [], totalMaterials: 0, communities: [], room: null };
 let setTab;
 
@@ -13,6 +20,7 @@ let setTab;
 const formatSize = (n) =>
   n < 1048576 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1048576).toFixed(1)} MB`;
 const MAX_UPLOAD = 25 * 1024 * 1024;
+const MAX_CHAT_UPLOAD = 50 * 1024 * 1024; // 50MB para o chat
 
 let toastTimer;
 function say(text) {
@@ -375,19 +383,36 @@ function renderMessages(messages, forceScroll) {
 
   const box = $('room-msgs');
   const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+  
   box.innerHTML = messages.length
     ? messages
-        .map(
-          (m) =>
-            `<div class="bubble${m.mine ? ' me' : ''}"><div class="who"><b>${m.mine ? 'Você' : escapeHtml(m.author.name)}</b>` +
+        .map((m) => {
+          // Lógica para renderizar o arquivo caso exista na mensagem
+          let attachmentHtml = '';
+          if (m.attachmentUrl) {
+            // Se for imagem, mostra a imagem
+            if (m.attachmentType && m.attachmentType.startsWith('image/')) {
+              attachmentHtml = `<div style="margin-top:8px;"><a href="${m.attachmentUrl}" target="_blank"><img src="${m.attachmentUrl}" alt="Anexo" style="max-width:100%;max-height:200px;border-radius:8px;"></a></div>`;
+            } else {
+              // Se for PDF/Doc, mostra um botão/card para baixar
+              attachmentHtml = `<div style="margin-top:8px;"><a href="${m.attachmentUrl}" target="_blank" class="btn o sm" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;">📄 Baixar Anexo</a></div>`;
+            }
+          }
+
+          return `<div class="bubble${m.mine ? ' me' : ''}">` +
+            `<div class="who"><b>${m.mine ? 'Você' : escapeHtml(m.author.name)}</b>` +
             `<time datetime="${m.createdAt}">${formatTime(m.createdAt)}</time>` +
             (m.canDelete
               ? `<button class="lnk" data-act="delete-message" data-id="${m.id}">Excluir</button>`
               : '') +
-            `</div><p class="txt">${escapeHtml(m.body)}</p></div>`,
-        )
+            `</div>` +
+            `<p class="txt">${escapeHtml(m.body)}</p>` +
+            attachmentHtml +
+            `</div>`;
+        })
         .join('')
     : '<p class="empty">Ninguém escreveu ainda. Comece a conversa!</p>';
+    
   if (forceScroll || nearBottom) box.scrollTop = box.scrollHeight;
 }
 
@@ -413,7 +438,8 @@ async function sendMessage(event) {
   $('chat-err').textContent = '';
   input.value = '';
   try {
-    await api.communities.send(room.id, body);
+    // Aqui enviamos apenas texto. Se o back-end suportar, você pode passar o link do arquivo aqui.
+    await api.communities.send(room.id, body, null, null);
     room.signature = ''; // força redesenhar com a nova mensagem
     await refreshRoom(true);
   } catch (err) {
@@ -422,6 +448,59 @@ async function sendMessage(event) {
     $('chat-err').textContent = err instanceof ApiError ? err.message : 'Não foi possível enviar a mensagem.';
   }
   input.focus();
+}
+
+/* ---------- LÓGICA DE UPLOAD DO CHAT ---------- */
+async function uploadAttachment(event) {
+  const file = event.target.files[0];
+  if (!file || !state.room) return;
+
+  const btn = $('btn-attach');
+  const input = $('file-input');
+
+  if (file.size > MAX_CHAT_UPLOAD) {
+    $('chat-err').textContent = `O arquivo tem ${formatSize(file.size)}. O limite é 50 MB.`;
+    input.value = '';
+    return;
+  }
+
+  $('chat-err').textContent = '';
+  btn.disabled = true;
+  btn.innerHTML = '⏳'; // Ícone de carregando
+
+  try {
+    // Cria nome único para o arquivo
+    const fileName = `${state.room.id}/${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
+    
+    // Upload para o Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('chat-attachments')
+      .upload(fileName, file);
+
+    if (error) throw error;
+
+    // Gera URL assinada válida por 1 hora
+    const { data: urlData, error: urlError } = await supabase.storage
+      .from('chat-attachments')
+      .createSignedUrl(data.path, 3600);
+
+    if (urlError) throw urlError;
+
+    // Envia a mensagem para o back-end da sua API, passando a URL e o tipo do arquivo
+    await api.communities.send(state.room.id, '', urlData.signedUrl, file.type);
+    
+    // Atualiza o chat
+    state.room.signature = ''; 
+    await refreshRoom(true);
+
+  } catch (err) {
+    console.error(err);
+    $('chat-err').textContent = 'Erro ao enviar o arquivo. Tente novamente.';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"></path></svg>`;
+    input.value = '';
+  }
 }
 
 async function deleteMessage(messageId) {
@@ -503,6 +582,11 @@ function bindEvents() {
   });
 
   $('f-chat').addEventListener('submit', sendMessage);
+  
+  // Eventos do botão de anexo
+  $('btn-attach')?.addEventListener('click', () => $('file-input').click());
+  $('file-input')?.addEventListener('change', uploadAttachment);
+
   window.addEventListener('hashchange', route);
 }
 
@@ -544,5 +628,6 @@ async function start() {
   loadCommunities();
   route();
 }
+
 
 start();
