@@ -153,6 +153,14 @@ const MIGRATIONS = [
   ALTER TABLE materials ADD COLUMN IF NOT EXISTS area TEXT NOT NULL DEFAULT 'Outros';
   CREATE INDEX IF NOT EXISTS idx_materials_area ON materials(area);
   `,
+  // 9: anexos nas mensagens das comunidades
+  `
+  ALTER TABLE community_messages
+    ADD COLUMN IF NOT EXISTS attachment_url TEXT;
+
+  ALTER TABLE community_messages
+    ADD COLUMN IF NOT EXISTS attachment_type TEXT;
+  `,
 ];
 
 /** Comunidades iniciais, criadas pela plataforma. */

@@ -449,6 +449,7 @@ async function sendMessage(event) {
   input.focus();
 }
 
+
 /* ---------- LÓGICA DE UPLOAD DO CHAT ---------- */
 async function uploadAttachment(event) {
   const file = event.target.files[0];
@@ -457,50 +458,56 @@ async function uploadAttachment(event) {
   const btn = $('btn-attach');
   const input = $('file-input');
 
-  if (file.size > MAX_CHAT_UPLOAD) {
-    $('chat-err').textContent = `O arquivo tem ${formatSize(file.size)}. O limite é 50 MB.`;
+  if (file.size > 25 * 1024 * 1024) {
+    $('chat-err').textContent = 'O arquivo ultrapassa o limite de 25 MB.';
     input.value = '';
     return;
   }
 
   $('chat-err').textContent = '';
   btn.disabled = true;
-  btn.innerHTML = '⏳'; // Ícone de carregando
+  btn.innerHTML = '⏳';
 
   try {
-    // Cria nome único para o arquivo
-    const fileName = `${state.room.id}/${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
-    
-    // Upload para o Supabase Storage
-    const { data, error } = await supabase.storage
+    // 1. Solicita autorização temporária ao backend.
+    const upload = await api.communities.createAttachmentUpload(
+      state.room.id,
+      file
+    );
+
+    // 2. Envia o arquivo usando a autorização recebida.
+    const { error } = await supabase.storage
       .from('chat-attachments')
-      .upload(fileName, file);
+      .uploadToSignedUrl(
+        upload.path,
+        upload.token,
+        file,
+        { contentType: upload.contentType }
+      );
 
     if (error) throw error;
 
-    // Gera URL assinada válida por 1 hora
-    const { data: urlData, error: urlError } = await supabase.storage
-      .from('chat-attachments')
-      .createSignedUrl(data.path, 3600);
+    // 3. Registra a mensagem no backend.
+    await api.communities.completeAttachmentUpload(state.room.id, {
+      path: upload.path,
+      body: '',
+      attachmentType: file.type || 'application/octet-stream'
+    });
 
-    if (urlError) throw urlError;
-
-    // Envia a mensagem para o back-end da sua API, passando a URL e o tipo do arquivo
-    await api.communities.send(state.room.id, '', urlData.signedUrl, file.type);
-    
-    // Atualiza o chat
-    state.room.signature = ''; 
+    state.room.signature = '';
     await refreshRoom(true);
 
   } catch (err) {
-    console.error(err);
-    $('chat-err').textContent = 'Erro ao enviar o arquivo. Tente novamente.';
+    console.error('Erro ao enviar anexo:', err);
+    $('chat-err').textContent =
+      err.message || 'Erro ao enviar o arquivo. Tente novamente.';
   } finally {
     btn.disabled = false;
     btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"></path></svg>`;
     input.value = '';
   }
 }
+
 
 /* ---------- LÓGICA DO MODAL DE MATERIAIS (OPÇÃO 2) ---------- */
 async function abrirModalMateriais() {
@@ -544,6 +551,7 @@ lista.querySelectorAll('.card-material-chat').forEach((botao, index) => {
 }
 
 // Função chamada pelo botão do material
+
 window.enviarMaterialDoChat = async function(id, titulo, nomeArquivo) {
   const room = state.room;
 
@@ -561,39 +569,47 @@ window.enviarMaterialDoChat = async function(id, titulo, nomeArquivo) {
   $('chat-err').textContent = '';
 
   try {
-    // 1. Baixa o material original da plataforma
+    // 1. Baixa o material original.
     const blob = await api.materials.download(id);
 
-    // 2. Cria um nome seguro para o arquivo
+    if (blob.size > 25 * 1024 * 1024) {
+      throw new Error('O material ultrapassa o limite de 25 MB.');
+    }
+
+    // 2. Prepara o arquivo.
     const nomeSeguro = (nomeArquivo || 'material.pdf')
       .replace(/[^\w.-]/g, '_');
 
-    const caminho = `${room.id}/${Date.now()}-${nomeSeguro}`;
+    const file = new File(
+      [blob],
+      nomeSeguro,
+      { type: blob.type || 'application/octet-stream' }
+    );
 
-    // 3. Faz upload para o armazenamento dos anexos do chat
-    const { data, error } = await supabase.storage
+    // 3. Solicita autorização temporária ao backend.
+    const upload = await api.communities.createAttachmentUpload(
+      room.id,
+      file
+    );
+
+    // 4. Envia o arquivo usando a autorização recebida.
+    const { error } = await supabase.storage
       .from('chat-attachments')
-      .upload(caminho, blob, {
-        contentType: blob.type || 'application/octet-stream',
-        upsert: false
-      });
+      .uploadToSignedUrl(
+        upload.path,
+        upload.token,
+        file,
+        { contentType: upload.contentType }
+      );
 
     if (error) throw error;
 
-    // 4. Gera o link de acesso ao arquivo
-    const { data: urlData, error: urlError } = await supabase.storage
-      .from('chat-attachments')
-      .createSignedUrl(data.path, 3600);
-
-    if (urlError) throw urlError;
-
-    // 5. Publica a mensagem no chat
-    await api.communities.send(
-      room.id,
-      `Enviou o material: ${titulo}`,
-      urlData.signedUrl,
-      blob.type || 'application/octet-stream'
-    );
+    // 5. Registra a mensagem no chat.
+    await api.communities.completeAttachmentUpload(room.id, {
+      path: upload.path,
+      body: `Enviou o material: ${titulo}`,
+      attachmentType: file.type
+    });
 
     room.signature = '';
     await refreshRoom(true);
@@ -607,6 +623,7 @@ window.enviarMaterialDoChat = async function(id, titulo, nomeArquivo) {
     btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"></path></svg>`;
   }
 };
+
 
 async function deleteMessage(messageId) {
   const room = state.room;
