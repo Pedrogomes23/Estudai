@@ -528,35 +528,65 @@ async function abrirModalMateriais() {
   }
 }
 
-// Função chamada pelo botão do material (inline)
+// Função chamada pelo botão do material
 window.enviarMaterialDoChat = async function(id, titulo, nomeArquivo) {
-  // Fecha o modal
-  $('modal-materiais').classList.remove('s');
-  
+  const room = state.room;
+
+  if (!room) {
+    $('chat-err').textContent = 'Abra uma comunidade antes de enviar.';
+    return;
+  }
+
+  const modal = $('modal-materiais');
   const btn = $('btn-attach');
+
+  modal.classList.remove('s');
   btn.disabled = true;
-  btn.innerHTML = '⏳';
+  btn.textContent = 'Enviando...';
+  $('chat-err').textContent = '';
 
   try {
-    // 1. Faz o download do arquivo pela API (para manter o login e contar os downloads)
+    // 1. Baixa o material original da plataforma
     const blob = await api.materials.download(id);
-    
-    // 2. Cria um link local (temporário) para o arquivo
-    const urlLocal = URL.createObjectURL(blob);
-    
-    // 3. Envia a mensagem no chat com esse link local e o tipo forçado como PDF
-    await api.communities.send(state.room.id, `Enviou o material: ${titulo}`, urlLocal, 'application/pdf');
-    
-    // Atualiza o chat
-    state.room.signature = ''; 
+
+    // 2. Cria um nome seguro para o arquivo
+    const nomeSeguro = (nomeArquivo || 'material.pdf')
+      .replace(/[^\w.-]/g, '_');
+
+    const caminho = `${room.id}/${Date.now()}-${nomeSeguro}`;
+
+    // 3. Faz upload para o armazenamento dos anexos do chat
+    const { data, error } = await supabase.storage
+      .from('chat-attachments')
+      .upload(caminho, blob, {
+        contentType: blob.type || 'application/octet-stream',
+        upsert: false
+      });
+
+    if (error) throw error;
+
+    // 4. Gera o link de acesso ao arquivo
+    const { data: urlData, error: urlError } = await supabase.storage
+      .from('chat-attachments')
+      .createSignedUrl(data.path, 3600);
+
+    if (urlError) throw urlError;
+
+    // 5. Publica a mensagem no chat
+    await api.communities.send(
+      room.id,
+      `Enviou o material: ${titulo}`,
+      urlData.signedUrl,
+      blob.type || 'application/octet-stream'
+    );
+
+    room.signature = '';
     await refreshRoom(true);
 
-    // (Opcional) Libera a memória depois de 1 minuto
-    setTimeout(() => URL.revokeObjectURL(urlLocal), 60000);
-
   } catch (err) {
-    console.error(err);
-    $('chat-err').textContent = 'Erro ao enviar o material. Verifique sua conexão.';
+    console.error('Erro ao enviar material:', err);
+    $('chat-err').textContent =
+      err.message || 'Não foi possível enviar o material.';
   } finally {
     btn.disabled = false;
     btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"></path></svg>`;
