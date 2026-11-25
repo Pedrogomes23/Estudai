@@ -3,12 +3,18 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import multer from 'multer';
+import { createClient } from '@supabase/supabase-js';
 import { HttpError, badRequest, forbidden, notFound } from '../lib/errors.js';
 import { CATEGORIES, MATERIAL_AREAS, parse, parseId, schemas } from '../lib/validation.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const ALLOWED_EXT = new Set(['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.odt', '.txt']);
 const MAX_LIST = 500;
+
+// Configura o Supabase
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
 function cleanFileName(raw) {
   const name = Buffer.from(raw, 'latin1').toString('utf8');
@@ -40,13 +46,10 @@ const toApi = (row) => ({
 
 export function materialsRouter({ db, config }) {
   const router = Router();
-  fs.mkdirSync(config.uploadDir, { recursive: true });
 
+  // Agora o Multer salva na memória para enviarmos direto ao Supabase
   const upload = multer({
-    storage: multer.diskStorage({
-      destination: config.uploadDir,
-      filename: (_req, _file, cb) => cb(null, randomUUID()),
-    }),
+    storage: multer.memoryStorage(),
     limits: { fileSize: config.uploadMaxBytes, files: 1, fields: 10 },
     fileFilter(_req, file, cb) {
       const ext = path.extname(cleanFileName(file.originalname)).toLowerCase();
@@ -58,8 +61,6 @@ export function materialsRouter({ db, config }) {
   const select = `
     SELECT m.*, u.name AS author_name, (m.author_id = $1) AS mine
       FROM materials m JOIN users u ON u.id = m.author_id`;
-
-  const removeFile = (key) => fs.promises.rm(path.join(config.uploadDir, key), { force: true });
 
   async function byId(id, me) {
     return db.get(`${select} WHERE m.id = $2`, [me, id]);
@@ -151,11 +152,31 @@ export function materialsRouter({ db, config }) {
     });
   });
 
+  // --- ROTA DE UPLOAD MODIFICADA ---
   router.post('/', upload.single('file'), async (req, res) => {
     const file = req.file;
     try {
       if (!file) throw badRequest('Escolha o arquivo da apostila.');
+      if (!supabase) throw new HttpError(500, 'CONFIG_ERROR', 'Supabase não configurado no servidor.');
+      
       const data = parse(schemas.material, req.body);
+      
+      // Gera a chave (apenas o nome do arquivo, sem o prefixo da pasta)
+      const storageKey = `${Date.now()}-${randomUUID()}`;
+
+      // 1. Upload para o Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('materials')
+        .upload(storageKey, file.buffer, {
+          contentType: file.mimetype,
+        });
+
+      if (uploadError) {
+        console.error('Erro no Supabase Storage:', uploadError);
+        throw new HttpError(500, 'UPLOAD_FAILED', 'Não foi possível salvar o arquivo no storage.');
+      }
+
+      // 2. Salva no Banco de Dados
       const { id } = await db.get(
         `INSERT INTO materials (title, area, discipline, category, description, file_name, file_size, storage_key, author_id)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
@@ -167,23 +188,34 @@ export function materialsRouter({ db, config }) {
           data.description,
           cleanFileName(file.originalname),
           file.size,
-          file.filename,
+          storageKey,
           req.user.id,
         ],
       );
       res.status(201).json({ item: toApi(await byId(id, req.user.id)) });
     } catch (err) {
-      if (file) await removeFile(file.filename);
       throw err;
     }
   });
 
+  // --- ROTA DE DOWNLOAD MODIFICADA ---
   router.get('/:id/download', async (req, res) => {
     const row = await byId(parseId(req.params.id), req.user.id);
     if (!row) throw notFound('Apostila não encontrada.');
-    const file = path.join(config.uploadDir, row.storage_key);
-    if (!fs.existsSync(file)) throw notFound('O arquivo desta apostila não está mais disponível.');
+    
+    if (!supabase) throw new HttpError(500, 'CONFIG_ERROR', 'Supabase não configurado no servidor.');
 
+    // Gera um link seguro e temporário do Supabase
+    const { data: signedUrlData, error: urlError } = await supabase.storage
+      .from('materials')
+      .createSignedUrl(row.storage_key, 60); // Link válido por 60 segundos
+
+    if (urlError || !signedUrlData) {
+      console.error('Erro no Supabase:', urlError);
+      throw notFound('O arquivo desta apostila não está mais disponível.');
+    }
+
+    // Contabiliza o download
     await db.transaction(async (tx) => {
       await tx.run('UPDATE materials SET downloads = downloads + 1 WHERE id = $1', [row.id]);
       await tx.run(
@@ -194,16 +226,25 @@ export function materialsRouter({ db, config }) {
       );
     });
 
-    res.download(file, row.file_name);
+    // Redireciona o usuário para o arquivo no Supabase
+    res.redirect(signedUrlData.signedUrl);
   });
 
+  // --- ROTA DE EXCLUSÃO MODIFICADA ---
   router.delete('/:id', async (req, res) => {
     const row = await byId(parseId(req.params.id), req.user.id);
     if (!row) throw notFound('Apostila não encontrada.');
     const isAdmin = Boolean(req.user.is_admin);
     if (!row.mine && !isAdmin) throw forbidden('Só quem enviou a apostila ou um administrador pode excluí-la.');
+    
+    // Remove do Banco de Dados
     await db.run('DELETE FROM materials WHERE id = $1', [row.id]);
-    await removeFile(row.storage_key);
+    
+    // Remove do Supabase Storage
+    if (supabase && row.storage_key) {
+      await supabase.storage.from('materials').remove([row.storage_key]);
+    }
+    
     res.status(204).end();
   });
 

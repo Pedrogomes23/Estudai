@@ -94,7 +94,9 @@ async function main() {
     // Lê o arquivo e prepara o upload para o Supabase
     const fileBuffer = fs.readFileSync(src);
     const stat = fs.statSync(src);
-    const storageKey = `materials/${Date.now()}-${randomUUID()}`;
+    
+    // CORRIGIDO: Removido o prefixo "materials/" para salvar apenas o nome do arquivo
+    const storageKey = `${Date.now()}-${randomUUID()}`;
 
     // 1. Faz o upload para o Supabase Storage
     const { error: uploadError } = await supabase.storage
