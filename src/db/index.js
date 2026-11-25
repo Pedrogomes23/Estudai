@@ -148,6 +148,11 @@ const MIGRATIONS = [
   CREATE INDEX IF NOT EXISTS idx_notif_read ON notifications(user_id, read_at);
   ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
   `,
+  // 8: área ampla dos materiais (filtros genéricos)
+  `
+  ALTER TABLE materials ADD COLUMN IF NOT EXISTS area TEXT NOT NULL DEFAULT 'Outros';
+  CREATE INDEX IF NOT EXISTS idx_materials_area ON materials(area);
+  `,
 ];
 
 /** Comunidades iniciais, criadas pela plataforma. */

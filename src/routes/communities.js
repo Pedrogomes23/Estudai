@@ -185,7 +185,7 @@ export function communitiesRouter({ db, config }) {
 
   router.delete('/:id', async (req, res) => {
     const row = await load(parseId(req.params.id), req.user.id);
-    if (!row.mine) throw forbidden('Só quem criou a comunidade pode excluí-la.');
+    if (!row.mine && !req.user.is_admin) throw forbidden('Só quem criou a comunidade ou um administrador pode excluí-la.');
     await db.run('DELETE FROM communities WHERE id = $1', [row.id]);
     res.status(204).end();
   });

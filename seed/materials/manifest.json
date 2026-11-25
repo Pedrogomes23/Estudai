@@ -1,0 +1,82 @@
+[
+  {
+    "file": "direito-introducao-constituicao.pdf",
+    "title": "Introdução à Constituição Federal",
+    "area": "Humanas e Sociais",
+    "discipline": "Direito Constitucional",
+    "category": "Apostila",
+    "description": "Noções básicas da Constituição de 1988: princípios, direitos fundamentais e organização do Estado."
+  },
+  {
+    "file": "direito-contratos-basico.pdf",
+    "title": "Noções de Contratos no Direito Civil",
+    "area": "Humanas e Sociais",
+    "discipline": "Direito Civil",
+    "category": "Resumo",
+    "description": "Resumo sobre elementos do contrato, tipos mais comuns e princípios da boa-fé e autonomia da vontade."
+  },
+  {
+    "file": "medicina-sinais-vitais.pdf",
+    "title": "Sinais Vitais: guia prático para iniciantes",
+    "area": "Natureza e Saúde",
+    "discipline": "Medicina / Enfermagem",
+    "category": "Apostila",
+    "description": "Como medir e interpretar temperatura, pulso, respiração e pressão arterial no dia a dia clínico."
+  },
+  {
+    "file": "adm-funcoes-administrativas.pdf",
+    "title": "As quatro funções da Administração",
+    "area": "Negócios e Gestão",
+    "discipline": "Administração",
+    "category": "Apostila",
+    "description": "Planejar, organizar, dirigir e controlar: o ciclo clássico da gestão aplicado a empresas e projetos."
+  },
+  {
+    "file": "adm-marketing-basico.pdf",
+    "title": "Marketing básico: os 4 Ps",
+    "area": "Negócios e Gestão",
+    "discipline": "Administração / Marketing",
+    "category": "Resumo",
+    "description": "Resumo objetivo de produto, preço, praça e promoção para quem está começando em gestão e negócios."
+  },
+  {
+    "file": "mat-funcoes-2ano.pdf",
+    "title": "Funções do 1º e 2º grau — 2º ano EM",
+    "area": "Matemática e Exatas",
+    "discipline": "Matemática — 2º ano EM",
+    "category": "Apostila",
+    "description": "Conceito de função, função afim e quadrática, gráficos e problemas típicos do ensino médio."
+  },
+  {
+    "file": "mat-trigonometria-2ano.pdf",
+    "title": "Trigonometria no triângulo retângulo — 2º ano EM",
+    "area": "Matemática e Exatas",
+    "discipline": "Matemática — 2º ano EM",
+    "category": "Resumo",
+    "description": "Seno, cosseno e tangente: definições, relações essenciais e aplicações em problemas do cotidiano."
+  },
+  {
+    "file": "redacao-dissertativa-enem.pdf",
+    "title": "Redação dissertativa-argumentativa — 3º ano EM",
+    "area": "Linguagens",
+    "discipline": "Redação — 3º ano EM",
+    "category": "Apostila",
+    "description": "Estrutura da redação do ENEM, tese, argumentos, repertório e conclusão com proposta de intervenção."
+  },
+  {
+    "file": "pedagogia-teorias-aprendizagem.pdf",
+    "title": "Teorias da aprendizagem: um panorama",
+    "area": "Educação",
+    "discipline": "Pedagogia",
+    "category": "Apostila",
+    "description": "Behaviorismo, cognitivismo e construtivismo: ideias centrais e impacto na prática em sala de aula."
+  },
+  {
+    "file": "pedagogia-planejamento-aula.pdf",
+    "title": "Planejamento de aula na prática",
+    "area": "Educação",
+    "discipline": "Pedagogia",
+    "category": "Resumo",
+    "description": "Objetivos, metodologia, recursos e avaliação: roteiro simples para planejar aulas mais claras e coerentes."
+  }
+]

@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import multer from 'multer';
 import { HttpError, badRequest, forbidden, notFound } from '../lib/errors.js';
-import { CATEGORIES, parse, parseId, schemas } from '../lib/validation.js';
+import { CATEGORIES, MATERIAL_AREAS, parse, parseId, schemas } from '../lib/validation.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const ALLOWED_EXT = new Set(['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.odt', '.txt']);
@@ -24,6 +24,7 @@ function cleanFileName(raw) {
 const toApi = (row) => ({
   id: row.id,
   title: row.title,
+  area: row.area || 'Outros',
   discipline: row.discipline,
   category: row.category,
   description: row.description,
@@ -34,6 +35,7 @@ const toApi = (row) => ({
   authorId: row.author_id,
   createdAt: new Date(row.created_at).toISOString().replace(/\.\d{3}Z$/, 'Z'),
   mine: Boolean(row.mine),
+  canDelete: Boolean(row.mine),
 });
 
 export function materialsRouter({ db, config }) {
@@ -68,6 +70,7 @@ export function materialsRouter({ db, config }) {
   router.get('/', async (req, res) => {
     const q = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 100) : '';
     const category = CATEGORIES.includes(req.query.category) ? req.query.category : null;
+    const area = MATERIAL_AREAS.includes(req.query.area) ? req.query.area : null;
     const discipline =
       typeof req.query.discipline === 'string' ? req.query.discipline.trim().slice(0, 80) : '';
     const sort = ['recent', 'popular', 'title'].includes(req.query.sort) ? req.query.sort : 'recent';
@@ -85,27 +88,37 @@ export function materialsRouter({ db, config }) {
       await db.all(
         `${select}
        WHERE ($3::text IS NULL OR m.category = $3::text)
-         AND ($2::text = '' OR position(lower(unaccent($2::text)) IN lower(unaccent(m.title || ' ' || m.discipline || ' ' || COALESCE(m.description,'')))) > 0)
+         AND ($7::text IS NULL OR m.area = $7::text)
+         AND ($2::text = '' OR position(lower(unaccent($2::text)) IN lower(unaccent(m.title || ' ' || COALESCE(m.discipline,'') || ' ' || COALESCE(m.description,'') || ' ' || COALESCE(m.area,'')))) > 0)
          AND ($4::text = '' OR lower(unaccent(m.discipline)) = lower(unaccent($4::text)))
          AND ($5::int = 0 OR m.author_id = $1)
          AND ($6::int IS NULL OR m.author_id = $6)
        ORDER BY ${order}
        LIMIT ${MAX_LIST}`,
-        [req.user.id, q, category, discipline, mineOnly ? 1 : 0, authorId],
+        [req.user.id, q, category, discipline, mineOnly ? 1 : 0, authorId, area],
       )
-    ).map(toApi);
+    ).map((row) => {
+      const item = toApi(row);
+      item.canDelete = item.mine || Boolean(req.user.is_admin);
+      return item;
+    });
 
     const { n } = await db.get(
       `SELECT COUNT(*)::int AS n FROM materials m
        WHERE ($2::text IS NULL OR m.category = $2::text)
-         AND ($1::text = '' OR position(lower(unaccent($1::text)) IN lower(unaccent(m.title || ' ' || m.discipline || ' ' || COALESCE(m.description,'')))) > 0)
+         AND ($7::text IS NULL OR m.area = $7::text)
+         AND ($1::text = '' OR position(lower(unaccent($1::text)) IN lower(unaccent(m.title || ' ' || COALESCE(m.discipline,'') || ' ' || COALESCE(m.description,'') || ' ' || COALESCE(m.area,'')))) > 0)
          AND ($3::text = '' OR lower(unaccent(m.discipline)) = lower(unaccent($3::text)))
          AND ($4::int = 0 OR m.author_id = $5)
          AND ($6::int IS NULL OR m.author_id = $6)`,
-      [q, category, discipline, mineOnly ? 1 : 0, req.user.id, authorId],
+      [q, category, discipline, mineOnly ? 1 : 0, req.user.id, authorId, area],
     );
 
-    res.json({ items, total: n });
+    res.json({ items, total: n, areas: MATERIAL_AREAS });
+  });
+
+  router.get('/areas', async (_req, res) => {
+    res.json({ items: MATERIAL_AREAS });
   });
 
   router.get('/disciplines', async (_req, res) => {
@@ -144,11 +157,12 @@ export function materialsRouter({ db, config }) {
       if (!file) throw badRequest('Escolha o arquivo da apostila.');
       const data = parse(schemas.material, req.body);
       const { id } = await db.get(
-        `INSERT INTO materials (title, discipline, category, description, file_name, file_size, storage_key, author_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+        `INSERT INTO materials (title, area, discipline, category, description, file_name, file_size, storage_key, author_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
         [
           data.title,
-          data.discipline,
+          data.area,
+          data.discipline || '',
           data.category,
           data.description,
           cleanFileName(file.originalname),
@@ -186,7 +200,8 @@ export function materialsRouter({ db, config }) {
   router.delete('/:id', async (req, res) => {
     const row = await byId(parseId(req.params.id), req.user.id);
     if (!row) throw notFound('Apostila não encontrada.');
-    if (!row.mine) throw forbidden('Só quem enviou a apostila pode excluí-la.');
+    const isAdmin = Boolean(req.user.is_admin);
+    if (!row.mine && !isAdmin) throw forbidden('Só quem enviou a apostila ou um administrador pode excluí-la.');
     await db.run('DELETE FROM materials WHERE id = $1', [row.id]);
     await removeFile(row.storage_key);
     res.status(204).end();

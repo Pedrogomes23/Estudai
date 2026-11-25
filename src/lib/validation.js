@@ -9,6 +9,19 @@ const text = (label, max) =>
     .max(max, `${label} deve ter no máximo ${max} caracteres.`);
 
 export const CATEGORIES = ['Apostila', 'Resumo'];
+/** Áreas amplas para filtros (ensino médio → universidade). */
+export const MATERIAL_AREAS = [
+  'Tecnologia',
+  'Matemática e Exatas',
+  'Natureza e Saúde',
+  'Humanas e Sociais',
+  'Linguagens',
+  'Engenharia',
+  'Negócios e Gestão',
+  'Artes e Design',
+  'Educação',
+  'Outros',
+];
 export const FEEDBACK_CATEGORIES = ['Elogio', 'Sugestão', 'Problema', 'Outro'];
 export const FEEDBACK_AREAS = ['Geral', 'Apostilas', 'Comunidades', 'Chat', 'Conta e login'];
 
@@ -27,10 +40,20 @@ export const schemas = {
     remember: z.boolean().optional().default(false),
   }),
   material: z.object({
-    title: text('Título', 80),
-    discipline: text('Disciplina', 60),
-    category: z.enum(CATEGORIES, { error: 'Categoria inválida.' }),
-    description: z.string().trim().max(200, 'A descrição deve ter no máximo 200 caracteres.').default(''),
+    title: text('Nome do material', 80),
+    area: z.enum(MATERIAL_AREAS, { error: 'Escolha a área do material.' }),
+    discipline: z
+      .string()
+      .trim()
+      .max(60, 'O tema deve ter no máximo 60 caracteres.')
+      .optional()
+      .default(''),
+    category: z.enum(CATEGORIES, { error: 'Escolha se é Apostila ou Resumo.' }),
+    description: z
+      .string()
+      .trim()
+      .max(300, 'O resumo deve ter no máximo 300 caracteres.')
+      .default(''),
   }),
   message: z.object({ body: text('Mensagem', 1000) }),
   feedback: z.object({

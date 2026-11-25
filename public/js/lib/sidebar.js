@@ -11,6 +11,7 @@ const ICONS = {
   adminCom: '<svg viewBox="0 0 24 24"><path d="M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/></svg>',
   profile: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>',
   settings: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  dashboard: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>',
 };
 
 const LINKS = [
@@ -23,6 +24,7 @@ const LINKS = [
   { id: 'admin-communities', href: 'feed.html#admin-communities', label: 'Comunidades que administro', icon: 'adminCom' },
   { id: 'profile', href: 'profile.html', label: 'Meu perfil', icon: 'profile' },
   { id: 'settings', href: 'feedback.html', label: 'Configurações / Feedback', icon: 'settings' },
+  { id: 'dashboard', href: 'admin.html', label: 'Dashboard', icon: 'dashboard', adminOnly: true },
 ];
 
 function initials(name) {
@@ -59,11 +61,13 @@ function ensureBackdrop() {
   document.body.appendChild(el);
 }
 
-function buildSidebarHtml(active) {
-  const nav = LINKS.map((link) => {
-    const isActive = link.id === active ? ' active' : '';
-    return `<a href="${link.href}" class="${isActive.trim()}" data-nav="${link.id}">${ICONS[link.icon]} ${link.label}</a>`;
-  }).join('');
+function buildSidebarHtml(active, isAdmin = false) {
+  const nav = LINKS.filter((link) => !link.adminOnly || isAdmin)
+    .map((link) => {
+      const isActive = link.id === active ? ' active' : '';
+      return `<a href="${link.href}" class="${isActive.trim()}" data-nav="${link.id}">${ICONS[link.icon]} ${link.label}</a>`;
+    })
+    .join('');
 
   return `
     <div class="brand">
@@ -87,7 +91,7 @@ function buildSidebarHtml(active) {
  * Inicializa a barra lateral padrão do Estudaí! em qualquer página autenticada.
  * @param {{ active?: string, user?: { name?: string, email?: string } }} opts
  */
-export function initSidebar({ active = 'feed', user = null } = {}) {
+export function initSidebar({ active = 'feed', user = null, isAdmin = false } = {}) {
   ensureBackdrop();
 
   let sidebar = document.getElementById('sidebar');
@@ -101,7 +105,9 @@ export function initSidebar({ active = 'feed', user = null } = {}) {
   }
 
   // Sempre usa o menu completo (mesma barra em todas as páginas)
-  sidebar.innerHTML = buildSidebarHtml(active);
+  const admin = Boolean(isAdmin || user?.isAdmin);
+  sidebar.innerHTML = buildSidebarHtml(active, admin);
+  sidebar.dataset.active = active;
 
   if (user) {
     const av = document.getElementById('side-av');
@@ -153,6 +159,21 @@ export function initSidebar({ active = 'feed', user = null } = {}) {
 
 export function setSidebarUser(user) {
   if (!user) return;
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar && user.isAdmin) {
+    const active = sidebar.dataset.active || 'feed';
+    sidebar.innerHTML = buildSidebarHtml(active, true);
+    // re-bind logout after rebuild
+    sidebar.querySelector('[data-logout]')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      api.auth.logout().finally(() => location.replace('index.html'));
+    });
+    sidebar.querySelectorAll('a').forEach((a) => {
+      a.addEventListener('click', () => {
+        if (window.matchMedia('(max-width: 900px)').matches) closeSidebar();
+      });
+    });
+  }
   const av = document.getElementById('side-av');
   const name = document.getElementById('side-name');
   const email = document.getElementById('side-email');

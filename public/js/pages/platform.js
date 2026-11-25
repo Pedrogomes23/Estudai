@@ -48,7 +48,7 @@ async function loadMaterials() {
       api.materials.list({
         q: $('q').value.trim(),
         category: $('cat').value,
-        discipline: $('discipline')?.value || '',
+        area: $('area')?.value || '',
         sort: $('sort-mat')?.value || 'recent',
         mine: $('scope-mat')?.value === 'mine' ? '1' : '',
       }),
@@ -58,24 +58,7 @@ async function loadMaterials() {
     state.totalMaterials = data.total;
     renderMaterials();
   } catch (err) {
-    handleError(err, 'Não foi possível carregar as apostilas.');
-  }
-}
-
-async function loadDisciplines() {
-  try {
-    const items = await api.materials.disciplines();
-    const sel = $('discipline');
-    if (!sel) return;
-    const current = sel.value;
-    sel.innerHTML =
-      '<option value="">Todas as disciplinas</option>' +
-      (items || [])
-        .map((d) => `<option value="${escapeHtml(d.discipline)}">${escapeHtml(d.discipline)} (${d.count})</option>`)
-        .join('');
-    if (current) sel.value = current;
-  } catch {
-    /* filtro opcional */
+    handleError(err, 'Não foi possível carregar os materiais.');
   }
 }
 
@@ -83,22 +66,26 @@ function renderMaterials() {
   const { materials, totalMaterials } = state;
   $('gm').innerHTML = materials.length
     ? materials
-        .map(
-          (x) =>
-            `<div class="card"><span class="tag">${escapeHtml(x.category)}</span><h3>${escapeHtml(x.title)}</h3>` +
-            `<small>${escapeHtml(x.discipline)}<br>Enviado por ${escapeHtml(x.author)} · ${formatSize(x.fileSize)}</small>` +
+        .map((x) => {
+          const theme = [x.area, x.discipline].filter(Boolean).join(' · ');
+          return (
+            `<div class="card"><span class="tag">${escapeHtml(x.category)}</span>` +
+            `<span class="tag" style="background:var(--line);color:var(--fg);margin-left:6px">${escapeHtml(x.area || 'Outros')}</span>` +
+            `<h3>${escapeHtml(x.title)}</h3>` +
+            `<small>${escapeHtml(theme)}<br>Enviado por ${escapeHtml(x.author)} · ${formatSize(x.fileSize)}</small>` +
             (x.description ? `<p class="d">${escapeHtml(x.description)}</p>` : '') +
             `<div class="foot"><span>${ICON_DOWNLOAD} ${x.downloads} downloads</span><span class="acts">` +
-            (x.mine
+            ((x.canDelete || x.mine || state.me?.isAdmin)
               ? `<button class="lnk" data-act="delete-material" data-id="${x.id}">Excluir</button>`
               : '') +
-            `<button class="btn p sm" data-act="download" data-id="${x.id}">Baixar</button></span></div></div>`,
-        )
+            `<button class="btn p sm" data-act="download" data-id="${x.id}">Baixar</button></span></div></div>`
+          );
+        })
         .join('')
     : `<p class="empty">${
         totalMaterials
-          ? 'Nenhuma apostila encontrada. Tente outro termo.'
-          : 'Ainda não há apostilas. Seja o primeiro a adicionar uma.'
+          ? 'Nenhum material encontrado com esses filtros.'
+          : 'Ainda não há materiais. Seja o primeiro a publicar um.'
       }</p>`;
 }
 
@@ -115,14 +102,18 @@ async function addMaterial(event) {
   const file = $('nf').files[0];
   const error = $('me');
   error.textContent = '';
-  if (!file) return void (error.textContent = 'Escolha o arquivo da apostila.');
+  if (!file) return void (error.textContent = 'Escolha o arquivo do material.');
   if (file.size > MAX_UPLOAD) {
     return void (error.textContent = `O arquivo tem ${formatSize(file.size)}. O limite é 25 MB.`);
   }
 
   const data = new FormData();
+  if (!$('na').value) {
+    return void (error.textContent = 'Escolha a área em que o material se encaixa.');
+  }
   data.set('title', $('nt').value.trim());
-  data.set('discipline', $('nd').value);
+  data.set('area', $('na').value);
+  data.set('discipline', $('nd').value.trim());
   data.set('category', $('nc').value);
   data.set('description', $('ns').value.trim());
   data.set('file', file);
@@ -137,7 +128,7 @@ async function addMaterial(event) {
     $('cat').value = '';
     closeModals();
     await loadMaterials();
-    say('Apostila publicada.');
+    say('Material publicado.');
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) return location.replace('login.html');
     error.textContent =
@@ -207,7 +198,7 @@ function renderCommunities() {
           (x) =>
             `<div class="card"><h3>${escapeHtml(x.name)}</h3><div class="mem">${ICON_USERS} ${x.members}${x.members === 1 ? ' membro' : ' membros'}</div>` +
             `<p class="d">${escapeHtml(x.description)}</p><div class="foot"><span>` +
-            (x.mine
+            (x.mine || state.me?.isAdmin
               ? `<button class="lnk" data-act="delete-community" data-id="${x.id}">Excluir</button>`
               : '') +
             `</span><span class="acts">` +
@@ -469,7 +460,7 @@ function bindEvents() {
   const reloadMat = debounce(loadMaterials, 250);
   $('q')?.addEventListener('input', reloadMat);
   $('cat')?.addEventListener('change', loadMaterials);
-  $('discipline')?.addEventListener('change', loadMaterials);
+  $('area')?.addEventListener('change', loadMaterials);
   $('sort-mat')?.addEventListener('change', loadMaterials);
   $('scope-mat')?.addEventListener('change', loadMaterials);
 
@@ -549,7 +540,6 @@ async function start() {
     });
   }
   bindEvents();
-  loadDisciplines();
   loadMaterials();
   loadCommunities();
   route();

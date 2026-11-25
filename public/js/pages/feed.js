@@ -48,10 +48,9 @@ async function boot() {
   initSidebar({ active: 'feed' });
 
   try {
-    const [profile, materials, disciplines, activities, notifs] = await Promise.all([
+    const [profile, materials, activities, notifs] = await Promise.all([
       api.profile.me(),
       api.materials.list({ sort: 'recent' }),
-      api.materials.disciplines().catch(() => []),
       api.profile.activities().catch(() => []),
       api.notifications.list().catch(() => ({ items: [], unread: 0 })),
     ]);
@@ -59,11 +58,9 @@ async function boot() {
     state.me = profile.user;
     state.stats = profile.stats;
     state.materials = materials.items || [];
-    state.disciplines = disciplines || [];
 
     renderUser();
     renderStats();
-    renderDisciplines();
     renderFeed();
     renderActivities(activities);
     renderNotifications(notifs);
@@ -98,17 +95,6 @@ function renderStats() {
   $('stat-owned').textContent = s.communitiesOwned ?? 0;
 }
 
-function renderDisciplines() {
-  const sel = $('discipline');
-  const current = sel.value;
-  sel.innerHTML =
-    '<option value="">Todas as disciplinas</option>' +
-    state.disciplines
-      .map((d) => `<option value="${escapeHtml(d.discipline)}">${escapeHtml(d.discipline)} (${d.count})</option>`)
-      .join('');
-  if (current) sel.value = current;
-}
-
 function renderFeed() {
   const list = $('feed-list');
   const items = state.materials;
@@ -122,8 +108,9 @@ function renderFeed() {
     <article class="mcard">
       <div>
         <span class="tag">${escapeHtml(m.category)}</span>
+        <span class="tag" style="background:var(--line);color:var(--fg);margin-left:6px">${escapeHtml(m.area || 'Outros')}</span>
         <h3>${escapeHtml(m.title)}</h3>
-        <div class="meta">${escapeHtml(m.discipline)} · por ${escapeHtml(m.author)} · ${formatDate(m.createdAt)}</div>
+        <div class="meta">${escapeHtml([m.area, m.discipline].filter(Boolean).join(' · '))} · por ${escapeHtml(m.author)} · ${formatDate(m.createdAt)}</div>
       </div>
       <div></div>
       ${m.description ? `<p class="desc">${escapeHtml(m.description)}</p>` : ''}
@@ -197,7 +184,7 @@ async function loadMaterials() {
     const filters = {
       q: $('q').value.trim(),
       category: $('cat').value,
-      discipline: $('discipline').value,
+      area: $('area')?.value || '',
       sort: state.sort,
     };
     if (state.view === 'my-files') filters.mine = '1';
@@ -401,7 +388,8 @@ $('q').addEventListener(
   }, 250),
 );
 $('cat').addEventListener('change', () => loadMaterials());
-$('discipline').addEventListener('change', () => loadMaterials());
+$('area')?.addEventListener('change', () => loadMaterials());
+$('area')?.addEventListener('change', () => loadMaterials());
 
 
 boot();

@@ -50,15 +50,25 @@
       <div class="bar">
         <div class="field">
           <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
-          <input id="q" type="search" placeholder="Buscar por título, disciplina ou descrição" aria-label="Buscar apostilas">
+          <input id="q" type="search" placeholder="Buscar por nome, tema ou resumo" aria-label="Buscar apostilas">
         </div>
-        <select id="cat" aria-label="Categoria">
-          <option value="">Todas as categorias</option>
+        <select id="cat" aria-label="Tipo">
+          <option value="">Todos os tipos</option>
           <option>Apostila</option>
           <option>Resumo</option>
         </select>
-        <select id="discipline" aria-label="Disciplina">
-          <option value="">Todas as disciplinas</option>
+        <select id="area" aria-label="Área">
+          <option value="">Todas as áreas</option>
+          <option>Tecnologia</option>
+          <option>Matemática e Exatas</option>
+          <option>Natureza e Saúde</option>
+          <option>Humanas e Sociais</option>
+          <option>Linguagens</option>
+          <option>Engenharia</option>
+          <option>Negócios e Gestão</option>
+          <option>Artes e Design</option>
+          <option>Educação</option>
+          <option>Outros</option>
         </select>
         <select id="sort-mat" aria-label="Ordenar">
           <option value="recent">Mais recentes</option>
@@ -69,7 +79,7 @@
           <option value="">Todos os materiais</option>
           <option value="mine">Só os meus</option>
         </select>
-        <button class="btn p" data-action="open-material">Adicionar apostila</button>
+        <button class="btn p" data-action="open-material">Publicar material</button>
       </div>
       <div class="grid" id="gm"></div>
     </div>
@@ -126,23 +136,37 @@
   </div>
 </div>
 
-<!-- Modal: adicionar apostila -->
-<div class="modal" id="mm" role="dialog" aria-modal="true" aria-label="Adicionar apostila">
+<!-- Modal: adicionar material -->
+<div class="modal" id="mm" role="dialog" aria-modal="true" aria-label="Publicar material">
   <form id="f-material">
     <button class="x" type="button" aria-label="Fechar" data-action="close-modal">&times;</button>
-    <h3>Adicionar apostila</h3><span class="ul"></span>
-    <label for="nt">Título</label>
-    <input id="nt" required maxlength="80" placeholder="Ex.: Resumo de Cálculo Diferencial I">
-    <label for="nd">Disciplina</label>
-    <select id="nd" required>
-      <option value="" disabled selected>Selecione a disciplina</option>
-      <option>Banco de Dados</option><option>Lógica de Programação</option><option>Engenharia de Software</option>
-      <option>Desenvolvimento Web</option><option>Redes de Computadores</option><option>Matemática</option><option>Outra</option>
+    <h3>Publicar material</h3><span class="ul"></span>
+    <label for="nt">Nome do material</label>
+    <input id="nt" required maxlength="80" placeholder="Ex.: Guia prático de roteadores Wi‑Fi">
+    <label for="nc">Tipo</label>
+    <select id="nc" required>
+      <option value="Apostila">Apostila</option>
+      <option value="Resumo">Resumo</option>
     </select>
-    <label for="nc">Categoria</label>
-    <select id="nc"><option>Apostila</option><option>Resumo</option></select>
-    <label for="ns">Descrição (opcional)</label>
-    <textarea id="ns" maxlength="200" placeholder="O que tem no material?"></textarea>
+    <label for="na">Área (identificação do filtro)</label>
+    <select id="na" required>
+      <option value="" disabled selected>Em qual área se encaixa?</option>
+      <option>Tecnologia</option>
+      <option>Matemática e Exatas</option>
+      <option>Natureza e Saúde</option>
+      <option>Humanas e Sociais</option>
+      <option>Linguagens</option>
+      <option>Engenharia</option>
+      <option>Negócios e Gestão</option>
+      <option>Artes e Design</option>
+      <option>Educação</option>
+      <option>Outros</option>
+    </select>
+    <p class="hint">Escolha a área ampla. Ex.: roteadores Wi‑Fi → Tecnologia; células → Natureza e Saúde.</p>
+    <label for="nd">Tema ou assunto (opcional)</label>
+    <input id="nd" maxlength="60" placeholder="Ex.: Roteadores Wi‑Fi, Funções do 1º grau, Revolução Industrial">
+    <label for="ns">Breve resumo</label>
+    <textarea id="ns" maxlength="300" placeholder="Em poucas linhas, o que a pessoa vai encontrar neste material?"></textarea>
     <label for="nf">Arquivo</label>
     <input id="nf" type="file" required accept=".pdf,.doc,.docx,.ppt,.pptx,.odt,.txt">
     <p class="hint">PDF, Word, PowerPoint ou texto, até 25 MB.</p>
