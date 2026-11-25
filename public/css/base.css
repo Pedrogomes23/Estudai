@@ -37,3 +37,11 @@ nav a:hover,nav a:focus-visible{color:#fff}
 .x{position:absolute;top:14px;right:16px;background:none;border:0;color:var(--mut);font-size:28px;line-height:1;cursor:pointer}
 .x:hover{color:#fff}
 .err:empty{display:none}
+/* Correção da seta preta (marcador padrão do HTML) */
+summary {
+  list-style: none;
+}
+
+summary::-webkit-details-marker {
+  display: none;
+}
