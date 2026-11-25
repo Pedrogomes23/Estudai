@@ -11,12 +11,15 @@ import { createMailer } from '../lib/mail.js';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 
-const publicUser = ({ id, name, email, bio, is_admin }) => ({
+const publicUser = ({ id, name, email, bio, is_admin, created_at }) => ({
   id,
   name,
   email,
   isAdmin: Boolean(is_admin),
   bio: bio || '',
+  createdAt: created_at
+    ? new Date(created_at).toISOString().replace(/\.\d{3}Z$/, 'Z')
+    : null,
 });
 
 export function authRouter({ db, config, sessions }) {

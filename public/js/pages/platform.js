@@ -493,7 +493,12 @@ async function start() {
     if (err instanceof ApiError && err.status === 401) return location.replace('login.html');
     return say('Não foi possível conectar ao servidor.');
   }
-  $('hi').textContent = `Bem-vindo de volta, ${state.me.name || 'estudante'}!`;
+  const firstName = (state.me.name || 'estudante').split(' ')[0];
+  const created = state.me.createdAt ? new Date(state.me.createdAt).getTime() : 0;
+  const isNew = created && Date.now() - created < 30 * 60 * 1000; // conta com menos de 30 min
+  $('hi').textContent = isNew
+    ? `Bem-vindo, ${state.me.name || 'estudante'}!`
+    : `Bem-vindo de volta, ${state.me.name || 'estudante'}!`;
   if (state.me.isAdmin) {
     const link = $('admin-link');
     if (link) link.hidden = false;

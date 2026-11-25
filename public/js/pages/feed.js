@@ -72,7 +72,11 @@ async function boot() {
 function renderUser() {
   const u = state.me;
   if (!u) return;
-  $('greet-title').textContent = `Olá, ${u.name.split(' ')[0]}!`;
+  const created = u.createdAt ? new Date(u.createdAt).getTime() : 0;
+  const isNew = created && Date.now() - created < 30 * 60 * 1000;
+  $('greet-title').textContent = isNew
+    ? `Bem-vindo, ${u.name.split(' ')[0]}!`
+    : `Bem-vindo de volta, ${u.name.split(' ')[0]}!`;
   $('side-name').textContent = u.name;
   $('side-email').textContent = u.email;
   $('side-av').textContent = initials(u.name);
