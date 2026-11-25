@@ -1,10 +1,17 @@
 import { ApiError, api } from '../lib/api.js';
 import { $, escapeHtml, initTabs } from '../lib/dom.js';
 
+const POLL_MS = 30_000;
+const MAX_USERS_LIST = 1000; // mesmo teto do servidor (GET /api/admin/users)
+
 const state = {
   me: null,
-  recentUsers: [],
+  recentUsers: [], // só os mais recentes (vem junto com as estatísticas)
+  allUsers: null, // lista completa, buscada só ao clicar em "Exibir mais"
+  totalUsers: 0,
   showAllUsers: false,
+  loadingAllUsers: false,
+  lastLoadAt: 0,
 };
 
 function say(text) {
@@ -102,14 +109,14 @@ function renderFeedbacks(list) {
 function renderUsers() {
   const usersBody = $('t-users');
   const toggle = $('users-toggle');
-  const users = state.recentUsers;
-  const visibleUsers = state.showAllUsers ? users : users.slice(0, 10);
+  const expanded = state.showAllUsers && state.allUsers;
+  const users = expanded ? state.allUsers : state.recentUsers;
 
   if (!users.length) {
     usersBody.innerHTML =
       '<tr><td colspan="4" class="empty">Nenhum usuário ainda.</td></tr>';
   } else {
-    usersBody.innerHTML = visibleUsers
+    usersBody.innerHTML = users
       .map(
         (u) =>
           `<tr>
@@ -122,8 +129,13 @@ function renderUsers() {
       .join('');
   }
 
-  toggle.hidden = users.length <= 10;
-  toggle.textContent = state.showAllUsers ? 'Exibir menos' : 'Exibir mais';
+  toggle.hidden = state.totalUsers <= state.recentUsers.length;
+  toggle.disabled = state.loadingAllUsers;
+  toggle.textContent = state.loadingAllUsers
+    ? 'Carregando…'
+    : state.showAllUsers
+      ? 'Exibir menos'
+      : 'Exibir mais';
 }
 
 function renderOverview(data) {
@@ -135,7 +147,13 @@ function renderOverview(data) {
   $('s-downloads').textContent = data.totalDownloads.toLocaleString('pt-BR');
 
   state.recentUsers = data.recentUsers || [];
+  state.totalUsers = data.totalUsers;
+  // Se a lista completa já foi aberta e entrou alguém novo, atualiza-a em segundo plano.
+  if (state.allUsers && state.allUsers.length !== Math.min(data.totalUsers, MAX_USERS_LIST)) {
+    state.allUsers = null;
+  }
   renderUsers();
+  if (state.showAllUsers && !state.allUsers) loadAllUsers();
 
   const comBody = $('t-communities');
   if (!data.recentCommunities.length) {
@@ -155,9 +173,33 @@ function renderOverview(data) {
   }
 }
 
+async function loadAllUsers() {
+  if (state.loadingAllUsers) return;
+  state.loadingAllUsers = true;
+  renderUsers();
+  try {
+    state.allUsers = await api.admin.users();
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+      return location.replace('login.html');
+    }
+    state.showAllUsers = false;
+    say(err instanceof ApiError ? err.message : 'Não foi possível carregar todos os usuários.');
+  } finally {
+    state.loadingAllUsers = false;
+    renderUsers();
+  }
+}
+
+let loading = false;
+
 async function loadStats() {
+  // Nunca deixa duas buscas em paralelo: se o servidor estiver lento, elas só se empilhariam.
+  if (loading) return;
+  loading = true;
   try {
     const data = await api.admin.stats();
+    state.lastLoadAt = Date.now();
     renderOverview(data);
     renderHappiness(data.happiness);
     renderFeedbacks(data.feedbacks);
@@ -167,7 +209,19 @@ async function loadStats() {
       return location.replace('login.html');
     }
     say(err instanceof ApiError ? err.message : 'Não foi possível carregar as estatísticas.');
+  } finally {
+    loading = false;
   }
+}
+
+/** Atualiza a cada 30s a partir do FIM da busca anterior, e só com a aba visível. */
+let pollTimer;
+function schedulePoll() {
+  clearTimeout(pollTimer);
+  pollTimer = setTimeout(async () => {
+    if (!document.hidden) await loadStats();
+    schedulePoll();
+  }, POLL_MS);
 }
 
 async function logout(event) {
@@ -198,11 +252,17 @@ async function start() {
   });
   $('users-toggle').addEventListener('click', () => {
     state.showAllUsers = !state.showAllUsers;
-     renderUsers();
+    renderUsers();
+    if (state.showAllUsers && !state.allUsers) loadAllUsers();
+  });
+
+  // Ao voltar para a aba depois de um tempo, atualiza na hora.
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && Date.now() - state.lastLoadAt > POLL_MS) loadStats();
   });
 
   await loadStats();
-  setInterval(loadStats, 30_000);
+  schedulePoll();
 }
 
 start();

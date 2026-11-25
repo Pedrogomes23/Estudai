@@ -131,6 +131,7 @@ export const api = {
   },
   admin: {
     stats: () => request('GET', '/api/admin/stats'),
+    users: () => request('GET', '/api/admin/users').then((r) => r.items),
   },
   ai: {
     listConversations: () => request('GET', '/api/ai/conversations'),
