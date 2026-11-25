@@ -60,9 +60,8 @@ export function adminRouter({ db }) {
 
     const recentUsers = await db.all(
       `SELECT id, name, email, created_at, is_admin
-         FROM users
-        ORDER BY created_at DESC, id DESC
-        LIMIT 10`,
+        FROM users
+        ORDER BY created_at DESC, id DESC`,
     );
 
     const recentCommunities = await db.all(

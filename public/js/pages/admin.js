@@ -1,7 +1,11 @@
 import { ApiError, api } from '../lib/api.js';
 import { $, escapeHtml, initTabs } from '../lib/dom.js';
 
-const state = { me: null };
+const state = {
+  me: null,
+  recentUsers: [],
+  showAllUsers: false,
+};
 
 function say(text) {
   const box = $('msg');
@@ -95,19 +99,17 @@ function renderFeedbacks(list) {
     .join('');
 }
 
-function renderOverview(data) {
-  $('s-users-month').textContent = data.usersCreatedLastMonth.toLocaleString('pt-BR');
-  $('s-active').textContent = data.activeUsersLive.toLocaleString('pt-BR');
-  $('s-communities').textContent = data.communitiesCreated.toLocaleString('pt-BR');
-  $('s-total-users').textContent = data.totalUsers.toLocaleString('pt-BR');
-  $('s-materials').textContent = data.totalMaterials.toLocaleString('pt-BR');
-  $('s-downloads').textContent = data.totalDownloads.toLocaleString('pt-BR');
-
+function renderUsers() {
   const usersBody = $('t-users');
-  if (!data.recentUsers.length) {
-    usersBody.innerHTML = '<tr><td colspan="4" class="empty">Nenhum usuário ainda.</td></tr>';
+  const toggle = $('users-toggle');
+  const users = state.recentUsers;
+  const visibleUsers = state.showAllUsers ? users : users.slice(0, 10);
+
+  if (!users.length) {
+    usersBody.innerHTML =
+      '<tr><td colspan="4" class="empty">Nenhum usuário ainda.</td></tr>';
   } else {
-    usersBody.innerHTML = data.recentUsers
+    usersBody.innerHTML = visibleUsers
       .map(
         (u) =>
           `<tr>
@@ -119,6 +121,21 @@ function renderOverview(data) {
       )
       .join('');
   }
+
+  toggle.hidden = users.length <= 10;
+  toggle.textContent = state.showAllUsers ? 'Exibir menos' : 'Exibir mais';
+}
+
+function renderOverview(data) {
+  $('s-users-month').textContent = data.usersCreatedLastMonth.toLocaleString('pt-BR');
+  $('s-active').textContent = data.activeUsersLive.toLocaleString('pt-BR');
+  $('s-communities').textContent = data.communitiesCreated.toLocaleString('pt-BR');
+  $('s-total-users').textContent = data.totalUsers.toLocaleString('pt-BR');
+  $('s-materials').textContent = data.totalMaterials.toLocaleString('pt-BR');
+  $('s-downloads').textContent = data.totalDownloads.toLocaleString('pt-BR');
+
+  state.recentUsers = data.recentUsers || [];
+  renderUsers();
 
   const comBody = $('t-communities');
   if (!data.recentCommunities.length) {
@@ -178,6 +195,10 @@ async function start() {
   initTabs(['overview', 'ratings']);
   document.addEventListener('click', (event) => {
     if (event.target.closest('[data-logout]')) logout(event);
+  });
+  $('users-toggle').addEventListener('click', () => {
+    state.showAllUsers = !state.showAllUsers;
+     renderUsers();
   });
 
   await loadStats();
