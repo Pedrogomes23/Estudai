@@ -530,6 +530,60 @@ async function abrirModalMateriais() {
 
 // Função chamada pelo botão do material (inline)
 window.enviarMaterialDoChat = async function(id, titulo, nomeArquivo) {
+  const room = state.room;
+  if (!room) return;
+
+  $('modal-materiais').classList.remove('s');
+
+  const btn = $('btn-attach');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+  $('chat-err').textContent = '';
+
+  try {
+    // 1. Baixa o material da plataforma
+    const blob = await api.materials.download(id);
+
+    // 2. Prepara um nome único para armazenar o arquivo
+    const nomeSeguro = (nomeArquivo || 'material.pdf').replace(/[^\w.-]/g, '_');
+    const caminho = `${room.id}/${Date.now()}-${nomeSeguro}`;
+
+    // 3. Envia o arquivo para o mesmo armazenamento usado pelos anexos
+    const { data, error } = await supabase.storage
+      .from('chat-attachments')
+      .upload(caminho, blob, {
+        contentType: blob.type || 'application/octet-stream',
+        upsert: false
+      });
+
+    if (error) throw error;
+
+    // 4. Cria um endereço que os participantes poderão acessar
+    const { data: urlData, error: urlError } = await supabase.storage
+      .from('chat-attachments')
+      .createSignedUrl(data.path, 3600);
+
+    if (urlError) throw urlError;
+
+    // 5. Envia a mensagem com o endereço real do arquivo
+    await api.communities.send(
+      room.id,
+      `Enviou o material: ${titulo}`,
+      urlData.signedUrl,
+      blob.type || 'application/octet-stream'
+    );
+
+    room.signature = '';
+    await refreshRoom(true);
+
+  } catch (err) {
+    console.error('Erro ao enviar material da plataforma:', err);
+    $('chat-err').textContent = 'Não foi possível enviar o material. Tente novamente.';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"></path></svg>`;
+  }
+};
   // Fecha o modal
   $('modal-materiais').classList.remove('s');
   
