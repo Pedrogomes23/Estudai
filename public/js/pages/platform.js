@@ -516,12 +516,27 @@ async function abrirModalMateriais() {
       return;
     }
 
-    lista.innerHTML = data.items.map(m => `
-      <button type="button" class="card-material-chat" onclick="window.enviarMaterialDoChat(${m.id}, '${escapeHtml(m.title)}', '${escapeHtml(m.fileName || 'Arquivo.pdf')}')">
-        <strong style="color:var(--fg); font-size:14px">${escapeHtml(m.title)}</strong>
-        <span style="color:var(--mut); font-size:12px">${escapeHtml(m.category)} · ${escapeHtml(m.author)}</span>
-      </button>
-    `).join('');
+    
+lista.innerHTML = data.items.map(m => `
+  <button type="button" class="card-material-chat">
+    <strong style="color:var(--fg); font-size:14px">${escapeHtml(m.title)}</strong>
+    <span style="color:var(--mut); font-size:12px">${escapeHtml(m.category)} · ${escapeHtml(m.author)}</span>
+  </button>
+`).join('');
+
+// Registra os cliques sem usar onclick inline
+lista.querySelectorAll('.card-material-chat').forEach((botao, index) => {
+  const material = data.items[index];
+
+  botao.addEventListener('click', () => {
+    window.enviarMaterialDoChat(
+      material.id,
+      material.title,
+      material.fileName || 'Arquivo.pdf'
+    );
+  });
+});
+
 
   } catch (err) {
     lista.innerHTML = '<p style="text-align:center;color:var(--err);font-size:13px">Erro ao carregar materiais.</p>';
