@@ -298,8 +298,34 @@ function route() {
   $('v-room').hidden = true;
   $('v-main').hidden = false;
   $('page-head').hidden = false;
-  setTab(location.hash === '#comunidades' ? 'com' : 'mat');
-  if (location.hash === '#comunidades') loadCommunities();
+  const onCommunities = location.hash === '#comunidades';
+  setTab(onCommunities ? 'com' : 'mat');
+  syncSidebar(onCommunities ? 'communities' : 'materials');
+  if (onCommunities) loadCommunities();
+}
+
+/** Marca na barra lateral qual dos dois links (materiais / comunidades) está ativo. */
+function syncSidebar(active) {
+  for (const link of document.querySelectorAll('#sidebar a[data-nav="materials"], #sidebar a[data-nav="communities"]')) {
+    link.classList.toggle('active', link.dataset.nav === active);
+  }
+}
+
+/**
+ * "Explorar materiais" e "Explorar comunidades" apontam para a mesma página. Em vez de depender
+ * do navegador recarregar (ou não) conforme o # da URL, trocamos a aba direto aqui.
+ */
+function onSidebarNavClick(event) {
+  const link = event.target.closest('#sidebar a[data-nav="materials"], #sidebar a[data-nav="communities"]');
+  if (!link) return;
+  if (event.ctrlKey || event.metaKey || event.shiftKey || event.button === 1) return; // abrir em nova aba
+  event.preventDefault();
+  const target = link.dataset.nav === 'communities' ? '#comunidades' : '#apostilas';
+  if (location.hash === target) {
+    route(); // já está nessa URL: o hashchange não dispara, então atualiza na mão
+  } else {
+    location.hash = target; // dispara o hashchange -> route()
+  }
 }
 
 function openRoom(id) {
@@ -750,6 +776,7 @@ function bindEvents() {
   });
 
   window.addEventListener('hashchange', route);
+  document.addEventListener('click', onSidebarNavClick);
 }
 
 async function logout(event) {
