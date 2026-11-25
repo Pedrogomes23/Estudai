@@ -67,6 +67,9 @@ export function loadConfig(overrides = {}, env = process.env) {
       enabled: Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS),
     },
     passwordResetTtlMs: 15 * 60 * 1000,
+    // ---- Klyra IA (Groq) ----
+    geminiApiKey: env.GROQ_API_KEY || env.GEMINI_API_KEY || '',
+    geminiModel: env.GROQ_MODEL || env.GEMINI_MODEL || 'qwen/qwen3.8-27b',
     ...overrides,
   });
 }

@@ -132,4 +132,19 @@ export const api = {
   admin: {
     stats: () => request('GET', '/api/admin/stats'),
   },
+  ai: {
+    listConversations: () => request('GET', '/api/ai/conversations'),
+    createConversation: (title) =>
+      request('POST', '/api/ai/conversations', { json: title ? { title } : {} }),
+    getConversation: (id) => request('GET', `/api/ai/conversations/${id}`),
+    sendMessage: (id, payload) => {
+      const body = typeof payload === 'string' ? { content: payload } : payload;
+      return request('POST', `/api/ai/conversations/${id}/messages`, { json: body });
+    },
+    extractText: (form) => request('POST', '/api/ai/extract-text', { form }),
+    extractFromMaterial: (materialId) =>
+      request('POST', '/api/ai/extract-material', { json: { materialId } }),
+    deleteConversation: (id) => request('DELETE', `/api/ai/conversations/${id}`),
+    limits: () => request('GET', '/api/ai/limits'),
+  },
 };

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, follow">
+<title>Klyra IA – Estudaí!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@400;600;700&display=swap">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<meta name="theme-color" content="#0d1838">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/platform.css">
+<link rel="stylesheet" href="css/feed.css">
+<link rel="stylesheet" href="css/klyra.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <div class="topbar">
+      <button class="icon-btn menu-toggle" id="menu-toggle" aria-label="Menu">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <strong style="font-family:'Baloo 2',sans-serif;font-size:20px">Klyra IA</strong>
+      <div class="actions">
+        <button class="icon-btn klyra-history-toggle" id="btn-history" type="button" aria-label="Histórico de conversas" title="Conversas">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h14"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="klyra-layout">
+      <aside class="klyra-sidebar" id="klyra-sidebar">
+        <div class="klyra-sidebar-head">
+          <button class="btn p" type="button" id="btn-new-chat">+ Nova conversa</button>
+        </div>
+        <div class="klyra-list" id="klyra-list"></div>
+      </aside>
+
+      <section class="klyra-chat">
+        <div class="klyra-messages" id="klyra-messages">
+          <div class="klyra-empty" id="klyra-empty">
+            <h2>Olá! Eu sou a Klyra ✨</h2>
+            <p>Sua tutora de estudos do Estudaí. Tire dúvidas, anexe apostilas para resumir, peça flashcards ou correções.</p>
+            <button class="btn p" type="button" id="btn-start">Começar a conversar</button>
+          </div>
+        </div>
+
+        <div id="klyra-error" class="klyra-error" hidden></div>
+
+        <div class="klyra-composer">
+          <div id="klyra-attach-chip" class="klyra-attach-chip" hidden></div>
+          <form id="klyra-form">
+            <button class="icon-btn attach-btn" type="button" id="btn-attach" title="Enviar arquivo do computador" aria-label="Anexar arquivo">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+            </button>
+            <button class="icon-btn attach-btn" type="button" id="btn-material" title="Usar material do site" aria-label="Escolher material">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+            </button>
+            <input type="file" id="klyra-file" accept=".pdf,.txt,.md,.csv,text/plain,application/pdf" hidden>
+            <textarea
+              id="klyra-input"
+              rows="1"
+              placeholder="Digite sua dúvida ou anexe um arquivo para resumir/corrigir…"
+              maxlength="2000"
+            ></textarea>
+            <button class="btn p" type="submit" id="klyra-send">Enviar</button>
+          </form>
+          <div class="klyra-meta" id="klyra-meta"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div id="klyra-material-modal" class="klyra-modal" hidden>
+  <div class="klyra-modal-card materials-picker">
+    <div class="klyra-modal-head">
+      <h2 class="materials-picker-title">Materiais da Plataforma</h2>
+      <button type="button" class="icon-btn" id="klyra-material-close" aria-label="Fechar">✕</button>
+    </div>
+    <div class="materials-picker-search">
+      <input type="search" id="klyra-material-search" placeholder="Pesquisar material..." autocomplete="off">
+    </div>
+    <div id="klyra-material-list" class="klyra-material-list"></div>
+  </div>
+</div>
+
+<script type="module" src="js/pages/klyra.js"></script>
+</body>
+</html>

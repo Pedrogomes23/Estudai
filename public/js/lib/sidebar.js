@@ -12,6 +12,7 @@ const ICONS = {
   profile: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>',
   settings: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
   dashboard: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>',
+  klyra: '<svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 017 7c0 3.5-2.5 6.4-6 7.3V19h-2v-2.7c-3.5-.9-6-3.8-6-7.3a7 7 0 017-7z"/><path d="M9 21h6"/></svg>',
 };
 
 const LINKS = [
@@ -22,6 +23,7 @@ const LINKS = [
   { id: 'my-downloads', href: 'feed.html#my-downloads', label: 'Meus downloads', icon: 'downloads' },
   { id: 'my-communities', href: 'feed.html#my-communities', label: 'Minhas comunidades', icon: 'myCom' },
   { id: 'admin-communities', href: 'feed.html#admin-communities', label: 'Comunidades que administro', icon: 'adminCom' },
+  { id: 'klyra', href: 'klyra.html', label: 'Klyra IA', icon: 'klyra' },
   { id: 'profile', href: 'profile.html', label: 'Meu perfil', icon: 'profile' },
   { id: 'settings', href: 'feedback.html', label: 'Configurações / Feedback', icon: 'settings' },
   { id: 'dashboard', href: 'admin.html', label: 'Dashboard', icon: 'dashboard', adminOnly: true },
