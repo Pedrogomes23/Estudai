@@ -196,7 +196,7 @@ export function createDb(connectionString, { ssl, max = 10, searchPath } = {}) {
     connectionString: url,
     max,
     idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 10_000,
+    connectionTimeoutMillis: 5_000, // ALTERADO AQUI (de 10_000 para 5_000)
     // Supabase exige SSL. A conexão é criptografada; o certificado do pooler não é validado aqui.
     ssl: useSsl ? { rejectUnauthorized: false } : false,
     ...(searchPath && { options: `-c search_path=${searchPath}` }),
