@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+data
+docs
+tests
+scripts
+certs
+*.pem
+*.key
+Dockerfile
+docker-compose.yml
