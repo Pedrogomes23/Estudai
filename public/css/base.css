@@ -1,0 +1,39 @@
+/* Estudaí! — estilos compartilhados (tokens, layout, componentes). */
+:root{
+  --bg:#0a1230;--bar:#0d1838;--fg:#f1f3fa;--mut:#a9b3d1;
+  --card:#111c42;--panel:#0e1838;--line:#26356a;
+  --yel:#fbb817;--pur:#8479dc;--pur2:#4b41a6;--tab:#f3f1ea;--ink:#10224f;--err:#ff8a8a;
+  color-scheme:dark;box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:400 17px/1.6 Nunito,system-ui,sans-serif}
+h1,h2,h3,.logo{font-family:"Baloo 2",Nunito,sans-serif;line-height:1.1;margin:0}
+a{color:inherit}
+[hidden]{display:none!important}
+.w{max-width:1040px;margin:0 auto;padding:0 20px}
+.top{background:var(--bar);border-bottom:1px solid var(--line)}
+header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;gap:12px;flex-wrap:wrap;max-width:1040px;margin:0 auto}
+.logo{font-size:30px;font-weight:800;color:#fff;text-decoration:none}
+.logo b{color:var(--yel)}
+nav a:hover,nav a:focus-visible{color:#fff}
+.btn{display:inline-block;background:var(--yel);color:var(--ink);font:700 16px Nunito,sans-serif;padding:12px 26px;border-radius:999px;text-decoration:none;border:0;cursor:pointer}
+.btn.p{background:var(--pur2);color:#fff}
+:focus-visible{outline:3px solid var(--pur);outline-offset:2px}
+.tabs{display:flex;margin-top:28px}
+.tab{padding:11px 36px;border:1px solid var(--line);border-bottom:0;border-radius:16px 16px 0 0;background:transparent;color:#fff;font:700 16px Nunito,sans-serif;cursor:pointer}
+.tab[aria-selected=true]{background:var(--tab);color:var(--ink);border-color:var(--tab)}
+.bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.field{position:relative;flex:1;min-width:180px}
+.field svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:18px;height:18px;stroke:var(--mut);fill:none;stroke-width:2;stroke-linecap:round}
+.field input{padding-left:40px}
+.grid{display:grid;gap:12px}
+#gc{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.card h3{font-size:19px;margin-bottom:6px}
+.card small{color:var(--mut);display:block;font-size:14px;line-height:1.4}
+.mem{display:flex;align-items:center;gap:6px;color:var(--mut);font-size:14px}
+.btn.on{background:var(--pur2);color:#fff}
+.modal.s{display:flex}
+.modal h3{text-align:center;font-size:30px;font-weight:800}
+.x{position:absolute;top:14px;right:16px;background:none;border:0;color:var(--mut);font-size:28px;line-height:1;cursor:pointer}
+.x:hover{color:#fff}
+.err:empty{display:none}

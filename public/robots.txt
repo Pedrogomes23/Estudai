@@ -1,0 +1,7 @@
+
+User-agent: *
+Allow: /
+
+Disallow: /api/
+
+Sitemap: https://estudai-lilac.vercel.app/sitemap.xml

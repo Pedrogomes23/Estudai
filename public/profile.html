@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, follow">
+<title>Meu perfil – Estudaí!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@400;600;700&display=swap">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<meta name="theme-color" content="#0d1838">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/platform.css">
+<link rel="stylesheet" href="css/feed.css">
+<style>
+.profile-hero{display:flex;gap:20px;align-items:center;margin-bottom:28px;flex-wrap:wrap}
+.profile-hero .av{width:80px;height:80px;border-radius:50%;background:var(--pur2);display:grid;place-items:center;font:800 28px "Baloo 2",sans-serif;color:#fff}
+.profile-hero h1{font-size:28px;margin:0 0 4px}
+.profile-hero .bio{color:var(--mut);max-width:50ch}
+.edit-form{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;max-width:520px;margin-bottom:28px}
+.edit-form label{display:block;font-size:13px;color:var(--mut);margin:12px 0 4px}
+.edit-form input,.edit-form textarea{width:100%}
+.edit-form textarea{min-height:90px;resize:vertical}
+.section{margin-bottom:28px}
+.section h2{font-size:20px;margin-bottom:12px}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><a class="logo" href="feed.html">Estud<b>aí!</b></a></div>
+    <nav class="side-nav">
+      <a href="feed.html">Início / Feed</a>
+      <a href="plataforma.html">Explorar materiais</a>
+      <a href="plataforma.html#com">Explorar comunidades</a>
+      <a href="profile.html" class="active">Meu perfil</a>
+      <a href="feedback.html">Configurações / Feedback</a>
+    </nav>
+    <div class="side-foot">
+      <div class="side-user">
+        <div class="av" id="side-av">?</div>
+        <div class="meta"><strong id="side-name">…</strong><span id="side-email">…</span></div>
+      </div>
+      <button class="lnk" data-logout style="margin-top:8px;padding:6px 8px">Sair da conta</button>
+    </div>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <button class="icon-btn menu-toggle" id="menu-toggle" aria-label="Menu"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <strong style="font-family:'Baloo 2',sans-serif;font-size:20px">Meu perfil</strong>
+      <div class="actions"><a class="btn sm" href="feed.html">Voltar ao feed</a></div>
+    </div>
+    <div class="content">
+      <div class="profile-hero">
+        <div class="av" id="prof-av">?</div>
+        <div>
+          <h1 id="prof-name">…</h1>
+          <div class="meta" id="prof-email" style="color:var(--mut)"></div>
+          <p class="bio" id="prof-bio"></p>
+        </div>
+      </div>
+
+      <div class="quick-cards" style="margin-bottom:28px">
+        <div class="qcard"><div class="n" id="stat-materials">0</div><div class="l">Arquivos enviados</div></div>
+        <div class="qcard"><div class="n" id="stat-downloads">0</div><div class="l">Downloads feitos</div></div>
+        <div class="qcard"><div class="n" id="stat-joined">0</div><div class="l">Comunidades</div></div>
+        <div class="qcard"><div class="n" id="stat-owned">0</div><div class="l">Que administro</div></div>
+      </div>
+
+      <form class="edit-form" id="edit-form">
+        <h3 style="margin:0 0 8px">Editar informações</h3>
+        <label for="name">Nome</label>
+        <input id="name" name="name" required minlength="2" maxlength="80">
+        <label for="bio">Biografia</label>
+        <textarea id="bio" name="bio" maxlength="500" placeholder="Conte um pouco sobre você e o que estuda…"></textarea>
+        <div style="margin-top:16px;display:flex;gap:10px">
+          <button class="btn p" type="submit">Salvar</button>
+          <span class="err" id="edit-err"></span>
+        </div>
+      </form>
+
+      <div class="section">
+        <h2>Materiais que enviei</h2>
+        <div class="feed-list" id="my-materials"><div class="empty">Carregando…</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="msg" id="msg" hidden></div>
+<script type="module" src="js/pages/profile.js"></script>
+</body>
+</html>

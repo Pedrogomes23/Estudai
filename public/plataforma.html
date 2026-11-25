@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, follow">
+<title>Plataforma – Estudaí!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@400;600;700&display=swap">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="assets/img/favicon-512.png">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<meta name="theme-color" content="#0d1838">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/platform.css">
+</head>
+<body>
+<div class="top">
+  <header>
+    <a class="logo" href="index.html" aria-label="Estudaí! – início">Estud<b>aí!</b></a>
+    <nav><a href="index.html">Início</a><a href="feedback.html">Feedback</a><a href="admin.html" id="admin-link" hidden>Dashboard</a><span class="hi" id="hi"></span><a href="#" data-logout>Sair</a></nav>
+  </header>
+</div>
+
+<div class="w">
+  <div class="head" id="page-head">
+    <h1>Sua plataforma de estudos</h1>
+    <p>Adicione apostilas para a turma, baixe as dos colegas e participe de comunidades de estudo, ou crie a sua.</p>
+  </div>
+
+  <div id="v-main">
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="t-mat" aria-selected="true" data-tab="mat">Apostilas</button>
+    <button class="tab" role="tab" id="t-com" aria-selected="false" data-tab="com">Comunidades</button>
+  </div>
+
+  <div class="panel">
+    <div id="p-mat">
+      <div class="bar">
+        <div class="field">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+          <input id="q" type="search" placeholder="Buscar por título ou disciplina" aria-label="Buscar apostilas">
+        </div>
+        <select id="cat" aria-label="Categoria"><option value="">Todas as categorias</option><option>Apostila</option><option>Resumo</option></select>
+        <button class="btn p" data-action="open-material">Adicionar apostila</button>
+      </div>
+      <div class="grid" id="gm"></div>
+    </div>
+
+    <div id="p-com" hidden>
+      <div class="bar">
+        <div class="field">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+          <input id="qc" type="search" placeholder="Buscar por nome ou assunto" aria-label="Buscar comunidades">
+        </div>
+        <select id="fc" aria-label="Filtrar comunidades"><option value="">Todas</option><option value="mine">Que participo</option></select>
+        <button class="btn" data-action="open-community">Criar comunidade</button>
+      </div>
+      <div class="grid" id="gc"></div>
+    </div>
+  </div>
+  </div>
+
+  <div id="v-room" hidden>
+    <div class="room-head">
+      <div class="room-title">
+        <h1 id="room-name"></h1>
+        <p id="room-desc"></p>
+      </div>
+      <div class="acts">
+        <button class="btn o sm" type="button" data-action="close-room">&larr; Comunidades</button>
+        <button class="btn o sm" type="button" data-action="leave-room">Sair da comunidade</button>
+      </div>
+    </div>
+    <div class="room">
+      <section class="chat" aria-label="Chat da comunidade">
+        <div class="msgs" id="room-msgs" role="log" aria-live="polite"></div>
+        <form class="send" id="f-chat">
+          <input id="chat-input" maxlength="1000" autocomplete="off" placeholder="Escreva uma mensagem" aria-label="Mensagem">
+          <button class="btn" type="submit">Enviar</button>
+        </form>
+        <p class="err" id="chat-err" role="alert"></p>
+      </section>
+      <aside class="people" aria-label="Participantes">
+        <h2>Participantes <span id="room-count"></span></h2>
+        <ul id="room-members"></ul>
+      </aside>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: adicionar apostila -->
+<div class="modal" id="mm" role="dialog" aria-modal="true" aria-label="Adicionar apostila">
+  <form id="f-material">
+    <button class="x" type="button" aria-label="Fechar" data-action="close-modal">&times;</button>
+    <h3>Adicionar apostila</h3><span class="ul"></span>
+    <label for="nt">Título</label>
+    <input id="nt" required maxlength="80" placeholder="Ex.: Resumo de Cálculo Diferencial I">
+    <label for="nd">Disciplina</label>
+    <select id="nd" required>
+      <option value="" disabled selected>Selecione a disciplina</option>
+      <option>Banco de Dados</option><option>Lógica de Programação</option><option>Engenharia de Software</option>
+      <option>Desenvolvimento Web</option><option>Redes de Computadores</option><option>Matemática</option><option>Outra</option>
+    </select>
+    <label for="nc">Categoria</label>
+    <select id="nc"><option>Apostila</option><option>Resumo</option></select>
+    <label for="ns">Descrição (opcional)</label>
+    <textarea id="ns" maxlength="200" placeholder="O que tem no material?"></textarea>
+    <label for="nf">Arquivo</label>
+    <input id="nf" type="file" required accept=".pdf,.doc,.docx,.ppt,.pptx,.odt,.txt">
+    <p class="hint">PDF, Word, PowerPoint ou texto, até 25 MB.</p>
+    <p class="err" id="me" role="alert"></p>
+    <div class="btns"><button class="btn" type="submit" id="mb">Publicar</button><button class="btn o" type="button" data-action="close-modal">Cancelar</button></div>
+  </form>
+</div>
+
+<!-- Modal: criar comunidade -->
+<div class="modal" id="mc" role="dialog" aria-modal="true" aria-label="Criar comunidade">
+  <form id="f-community">
+    <button class="x" type="button" aria-label="Fechar" data-action="close-modal">&times;</button>
+    <h3>Criar comunidade</h3><span class="ul"></span>
+    <label for="cn">Nome</label>
+    <input id="cn" required maxlength="60" placeholder="Ex.: Estruturas de Dados em grupo">
+    <label for="cd">Sobre o que é?</label>
+    <textarea id="cd" required maxlength="160" placeholder="Explique em uma frase o que o grupo estuda."></textarea>
+    <p class="err" id="ce" role="alert"></p>
+    <div class="btns"><button class="btn" type="submit">Criar comunidade</button><button class="btn o" type="button" data-action="close-modal">Cancelar</button></div>
+  </form>
+</div>
+
+<div class="msg" id="msg" role="status" hidden></div>
+
+<script type="module" src="js/lib/cookie-consent.js"></script>
+<script type="module" src="js/pages/platform.js"></script>
+</body>
+</html>

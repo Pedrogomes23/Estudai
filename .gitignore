@@ -1,0 +1,18 @@
+node_modules/
+data/
+.env
+.env.*
+!.env.example
+coverage/
+*.log
+.DS_Store
+.fly/
+dist/
+build/
+
+# Certificados e chaves privadas (HTTPS): nunca versionar.
+certs/
+*.pem
+*.key
+
+.env

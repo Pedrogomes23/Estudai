@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, follow">
+  <title>Estudaí! – Entrar ou criar conta</title>
+  <meta name="description" content="Entre ou crie sua conta no Estudaí para acessar apostilas, resumos e comunidades de estudo.">
+  <link rel="canonical" href="https://estudai-lilac.vercel.app/login.html">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@400;600;700&display=swap">
+
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="assets/img/favicon-512.png">
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+  <meta name="theme-color" content="#0d1838">
+
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/home.css">
+</head>
+<body>
+<div id="auth">
+  <div class="top">
+    <header>
+      <a class="logo" href="index.html" aria-label="Estudaí! – início">Estud<b>aí!</b></a>
+      <nav>
+        <a href="index.html">Início</a>
+      </nav>
+    </header>
+  </div>
+  <main>
+    <div class="intro">
+      <h1>Bem-vindo de volta,<span>vamos estudar?</span></h1>
+      <p>Entre para baixar materiais, enviar seus resumos e participar das comunidades de estudo.</p>
+      <img class="sun" src="assets/img/logo-estudai.png" alt="Ilustração de três estudantes sobre um livro aberto">
+    </div>
+    <div>
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" id="t-in" aria-selected="true" data-auth-tab="in">Entrar</button>
+        <button class="tab" role="tab" id="t-up" aria-selected="false" data-auth-tab="up">Criar conta</button>
+      </div>
+      <div class="panel">
+        <div class="ok" id="ok" role="status"></div>
+
+        <form id="f-in" novalidate>
+          <h2>Entrar</h2><span class="ul"></span>
+          <div class="fg">
+            <label for="li-email">E-mail</label>
+            <input id="li-email" type="email" autocomplete="email" placeholder="voce@email.com" aria-describedby="li-email-e">
+            <p class="err" id="li-email-e"></p>
+          </div>
+          <div class="fg">
+            <label for="li-pass">Senha</label>
+            <div class="pw">
+              <input id="li-pass" type="password" autocomplete="current-password" placeholder="Sua senha" aria-describedby="li-pass-e">
+              <button class="eye" type="button" aria-controls="li-pass" aria-pressed="false" data-toggle="li-pass">Mostrar</button>
+            </div>
+            <p class="err" id="li-pass-e"></p>
+          </div>
+          <div class="opts">
+            <label><input type="checkbox" id="li-rem"> Manter conectado</label>
+            <a href="forgot-password.html" id="forgot">Esqueci a senha</a>
+          </div>
+          <button class="btn" type="submit">Entrar</button>
+          <p class="alt">Ainda não tem conta? <button type="button" data-auth-tab="up">Criar conta</button></p>
+        </form>
+
+        <form id="f-up" novalidate hidden>
+          <h2>Criar conta</h2><span class="ul"></span>
+          <div class="fg">
+            <label for="su-nome">Nome</label>
+            <input id="su-nome" type="text" autocomplete="name" placeholder="Como quer ser chamado" aria-describedby="su-nome-e">
+            <p class="err" id="su-nome-e"></p>
+          </div>
+          <div class="fg">
+            <label for="su-email">E-mail</label>
+            <input id="su-email" type="email" autocomplete="email" placeholder="voce@email.com" aria-describedby="su-email-e">
+            <p class="err" id="su-email-e"></p>
+          </div>
+          <div class="fg">
+            <label for="su-pass">Senha</label>
+            <div class="pw">
+              <input id="su-pass" type="password" autocomplete="new-password" placeholder="Mínimo de 8 caracteres" aria-describedby="su-pass-e">
+              <button class="eye" type="button" aria-controls="su-pass" aria-pressed="false" data-toggle="su-pass">Mostrar</button>
+            </div>
+            <p class="err" id="su-pass-e"></p>
+          </div>
+          <button class="btn" type="submit">Criar conta</button>
+          <p class="alt">Já tem conta? <button type="button" data-auth-tab="in">Entrar</button></p>
+        </form>
+      </div>
+    </div>
+  </main>
+  <div class="afoot">&copy; 2026 Estudaí! · <a href="index.html">Voltar ao início</a></div>
+</div>
+
+<script type="module" src="js/lib/cookie-consent.js"></script>
+<script type="module" src="js/pages/login.js"></script>
+</body>
+</html>

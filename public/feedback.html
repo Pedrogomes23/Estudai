@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, follow">
+<title>Feedback – Estudaí!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@400;600;700&display=swap">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="assets/img/favicon-512.png">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<meta name="theme-color" content="#0d1838">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/platform.css">
+<link rel="stylesheet" href="css/feedback.css">
+</head>
+<body>
+<div class="top">
+  <header>
+    <a class="logo" href="index.html" aria-label="Estudaí! – início">Estud<b>aí!</b></a>
+    <nav><a href="index.html">Início</a><a href="plataforma.html">Plataforma</a><a href="feedback.html" aria-current="page">Feedback</a><span class="hi" id="hi"></span><a href="#" data-logout>Sair</a></nav>
+  </header>
+</div>
+
+<main class="w">
+  <div class="head">
+    <h1>Sua opinião faz o Estudaí! melhorar</h1>
+    <p>Conte o que está funcionando, o que travou e o que você gostaria de ver por aqui. Leva menos de um minuto.</p>
+  </div>
+
+  <div class="fb">
+    <section class="fb-card" aria-labelledby="fb-title">
+      <!-- Formulário -->
+      <form id="f-feedback" novalidate>
+        <h2 id="fb-title">Deixe seu feedback</h2><span class="ul left"></span>
+
+        <fieldset class="fg" aria-describedby="rating-e">
+          <legend>Como está sendo sua experiência?</legend>
+          <div class="stars" id="stars">
+            <input type="radio" name="rating" id="r5" value="5"><label for="r5" title="5 – Excelente"><span class="sr">5 estrelas</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.7l-5.9 3.1 1.2-6.5L2.5 9.7l6.6-.9z"/></svg></label>
+            <input type="radio" name="rating" id="r4" value="4"><label for="r4" title="4 – Bom"><span class="sr">4 estrelas</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.7l-5.9 3.1 1.2-6.5L2.5 9.7l6.6-.9z"/></svg></label>
+            <input type="radio" name="rating" id="r3" value="3"><label for="r3" title="3 – Ok"><span class="sr">3 estrelas</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.7l-5.9 3.1 1.2-6.5L2.5 9.7l6.6-.9z"/></svg></label>
+            <input type="radio" name="rating" id="r2" value="2"><label for="r2" title="2 – Poderia ser melhor"><span class="sr">2 estrelas</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.7l-5.9 3.1 1.2-6.5L2.5 9.7l6.6-.9z"/></svg></label>
+            <input type="radio" name="rating" id="r1" value="1"><label for="r1" title="1 – Ruim"><span class="sr">1 estrela</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.7l-5.9 3.1 1.2-6.5L2.5 9.7l6.6-.9z"/></svg></label>
+          </div>
+          <p class="rate-text" id="rate-text" aria-live="polite">Toque nas estrelas para avaliar</p>
+          <p class="err" id="rating-e" role="alert"></p>
+        </fieldset>
+
+        <fieldset class="fg" aria-describedby="category-e">
+          <legend>Que tipo de feedback é?</legend>
+          <div class="chips">
+            <input type="radio" name="category" id="c-elogio" value="Elogio"><label for="c-elogio">👏 Elogio</label>
+            <input type="radio" name="category" id="c-sugestao" value="Sugestão"><label for="c-sugestao">💡 Sugestão</label>
+            <input type="radio" name="category" id="c-problema" value="Problema"><label for="c-problema">🐞 Problema</label>
+            <input type="radio" name="category" id="c-outro" value="Outro"><label for="c-outro">💬 Outro</label>
+          </div>
+          <p class="err" id="category-e" role="alert"></p>
+        </fieldset>
+
+        <div class="fg">
+          <label for="area">Sobre qual parte do Estudaí!?</label>
+          <select id="area" name="area" aria-describedby="area-e">
+            <option value="" disabled selected>Selecione a área</option>
+            <option>Geral</option><option>Apostilas</option><option>Comunidades</option><option>Chat</option><option>Conta e login</option>
+          </select>
+          <p class="err" id="area-e" role="alert"></p>
+        </div>
+
+        <div class="fg">
+          <label for="message">Conte com suas palavras</label>
+          <textarea id="message" name="message" maxlength="1000" rows="6" placeholder="O que você gostou, o que atrapalhou ou o que poderia existir? Se for um problema, diga o que estava fazendo quando aconteceu." aria-describedby="message-e message-count"></textarea>
+          <div class="count-row"><p class="err" id="message-e" role="alert"></p><span class="count" id="message-count">0/1000</span></div>
+        </div>
+
+        <label class="check"><input type="checkbox" id="contact" name="contact"> Pode entrar em contato comigo sobre este feedback</label>
+
+        <p class="err" id="form-e" role="alert"></p>
+        <button class="btn" type="submit" id="send">Enviar feedback</button>
+      </form>
+
+      <!-- Agradecimento -->
+      <div class="thanks" id="thanks" role="status" tabindex="-1" hidden>
+        <div class="ok-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+        <h2>Obrigado pelo seu feedback!</h2>
+        <p>Recebemos sua opinião e vamos ler com atenção. É assim que o Estudaí! fica melhor para toda a turma.</p>
+        <div class="acts center">
+          <button class="btn" type="button" id="again">Enviar outro feedback</button>
+          <a class="btn o" href="plataforma.html">Voltar à plataforma</a>
+        </div>
+      </div>
+    </section>
+
+    <aside class="fb-side" aria-label="Dicas">
+      <h2>Dicas para um bom feedback</h2>
+      <ul>
+        <li><b>Seja específico.</b> “O botão Baixar não respondeu no celular” ajuda mais que “não funciona”.</li>
+        <li><b>Conte o contexto.</b> O que você estava tentando fazer?</li>
+        <li><b>Uma ideia por vez.</b> Tem mais de uma sugestão? Envie um feedback para cada.</li>
+        <li><b>Sem dados pessoais.</b> Não escreva senhas nem informações sensíveis.</li>
+      </ul>
+    </aside>
+  </div>
+
+  <section class="mine" id="mine" aria-labelledby="mine-title" hidden>
+    <h2 id="mine-title">Seus feedbacks enviados</h2>
+    <div class="list" id="mine-list"></div>
+  </section>
+</main>
+
+<div class="msg" id="msg" role="status" hidden></div>
+
+<script type="module" src="js/lib/cookie-consent.js"></script>
+<script type="module" src="js/pages/feedback.js"></script>
+</body>
+</html>

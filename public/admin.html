@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, follow">
+<title>Dashboard Admin – Estudaí!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@400;600;700&display=swap">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="assets/img/favicon-512.png">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<meta name="theme-color" content="#0d1838">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+<div class="top">
+  <header>
+    <a class="logo" href="index.html" aria-label="Estudaí! – início">Estud<b>aí!</b></a>
+    <nav>
+      <a href="index.html">Início</a>
+      <a href="plataforma.html">Plataforma</a>
+      <a href="admin.html" aria-current="page">Dashboard</a>
+      <span class="hi" id="hi"></span>
+      <a href="#" data-logout>Sair</a>
+    </nav>
+  </header>
+</div>
+
+<div class="w admin-wrap">
+  <div class="head">
+    <h1>Dashboard administrativo</h1>
+    <p>Visão geral da plataforma e avaliações dos estudantes. Atualiza a cada 30 segundos.</p>
+  </div>
+
+  <p class="err" id="msg" hidden role="status"></p>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" type="button" id="t-overview" data-tab="overview" role="tab" aria-selected="true">Visão geral</button>
+    <button class="tab" type="button" id="t-ratings" data-tab="ratings" role="tab" aria-selected="false">Avaliações</button>
+  </div>
+
+  <div id="p-overview" role="tabpanel">
+    <div class="stats" id="stats-cards" aria-live="polite">
+      <div class="stat-card">
+        <span class="stat-label">Usuários no último mês</span>
+        <strong class="stat-value" id="s-users-month">—</strong>
+      </div>
+      <div class="stat-card live">
+        <span class="stat-label">Usuários ativos ao vivo</span>
+        <strong class="stat-value" id="s-active">—</strong>
+        <span class="live-dot" aria-hidden="true"></span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Comunidades criadas</span>
+        <strong class="stat-value" id="s-communities">—</strong>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Total de usuários</span>
+        <strong class="stat-value" id="s-total-users">—</strong>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Apostilas / resumos</span>
+        <strong class="stat-value" id="s-materials">—</strong>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Downloads totais</span>
+        <strong class="stat-value" id="s-downloads">—</strong>
+      </div>
+    </div>
+
+    <div class="panels">
+      <section class="panel">
+        <h2>Últimos usuários cadastrados</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Nome</th><th>E-mail</th><th>Cadastro</th><th></th></tr>
+            </thead>
+            <tbody id="t-users">
+              <tr><td colspan="4" class="empty">Carregando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Comunidades recentes</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Nome</th><th>Criador</th><th>Membros</th><th>Criada em</th></tr>
+            </thead>
+            <tbody id="t-communities">
+              <tr><td colspan="4" class="empty">Carregando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div id="p-ratings" role="tabpanel" hidden>
+    <section class="panel happiness">
+      <h2>Felicidade dos usuários</h2>
+      <p class="muted happiness-lead">Média das notas enviadas no feedback, de 1 a 5 estrelas.</p>
+      <div class="happiness-row">
+        <div class="happiness-score">
+          <strong id="h-average">—</strong>
+          <div class="stars" id="h-stars" aria-hidden="true"></div>
+          <span class="muted" id="h-total">— avaliações</span>
+        </div>
+        <div class="bars" id="h-bars" aria-label="Distribuição das notas"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Avaliações e resenhas</h2>
+      <div id="feedback-list" class="review-list">
+        <p class="muted empty-msg">Carregando…</p>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script type="module" src="js/lib/cookie-consent.js"></script>
+<script type="module" src="js/pages/admin.js"></script>
+</body>
+</html>
