@@ -1,6 +1,8 @@
 import { ApiError, api } from '../lib/api.js';
 // Garante autenticação: visitantes vão para o login
-api.auth.me().catch(() => location.replace('login.html'));
+// (a mesma resposta é reaproveitada no start(), em vez de pedir /me duas vezes)
+const mePromise = api.auth.me();
+mePromise.catch(() => location.replace('login.html'));
 
 import { $, debounce, escapeHtml, ICON_DOWNLOAD, ICON_USERS, initTabs } from '../lib/dom.js';
 import { initSidebar, setSidebarUser } from '../lib/sidebar.js';
@@ -793,7 +795,7 @@ async function start() {
   initSidebar({ active: path });
 
   try {
-    state.me = await api.auth.me();
+    state.me = await mePromise;
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) return location.replace('login.html');
     return say('Não foi possível conectar ao servidor.');
@@ -814,7 +816,8 @@ async function start() {
   }
   bindEvents();
   loadMaterials();
-  loadCommunities();
+  // Na aba #comunidades o route() já carrega a lista: evita pedir duas vezes.
+  if (location.hash !== '#comunidades') loadCommunities();
   route();
 }
 

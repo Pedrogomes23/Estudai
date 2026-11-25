@@ -228,6 +228,7 @@ export function createDb(connectionString, { ssl, max = 10, searchPath } = {}) {
   const pool = new pg.Pool({
     connectionString: url,
     max,
+    keepAlive: true,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 5_000, // ALTERADO AQUI (de 10_000 para 5_000)
     // Supabase exige SSL. A conexão é criptografada; o certificado do pooler não é validado aqui.
@@ -266,6 +267,17 @@ export function createDb(connectionString, { ssl, max = 10, searchPath } = {}) {
 
 /** Aplica as migrações pendentes. O lock impede que duas instâncias migrem ao mesmo tempo. */
 export async function migrate(db) {
+  // Caminho rápido: na grande maioria das partidas (cold start) o banco já está atualizado.
+  // Uma única consulta basta; o lock e o CREATE TABLE só rodam quando há migração pendente.
+  try {
+    const { rows } = await db.pool.query(
+      'SELECT COALESCE(MAX(version), 0)::int AS v FROM schema_migrations',
+    );
+    if (rows[0].v >= MIGRATIONS.length) return;
+  } catch {
+    // tabela schema_migrations ainda não existe (banco novo): segue o fluxo completo abaixo
+  }
+
   const client = await db.pool.connect();
   try {
     await client.query('SELECT pg_advisory_lock(727274)');
@@ -292,6 +304,13 @@ export async function migrate(db) {
 
 /** Cria as comunidades oficiais e a conta admin se ainda não existirem. */
 export async function seed(db) {
+  // Caminho rápido: comunidades oficiais e admin já existem -> nada a fazer (1 consulta só).
+  const state = await db.get(
+    `SELECT (SELECT COUNT(*)::int FROM communities) AS communities,
+            (SELECT COUNT(*)::int FROM users WHERE is_admin = true) AS admins`,
+  );
+  if (state.communities > 0 && state.admins > 0) return;
+
   await db.transaction(async (tx) => {
     const { n } = await tx.get('SELECT COUNT(*)::int AS n FROM communities');
     if (n === 0) {

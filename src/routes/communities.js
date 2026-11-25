@@ -39,6 +39,39 @@ const toApi = (row) => ({
 // Mesmo formato de antes (sem milissegundos): 2026-11-13T17:54:52Z
 const toIso = (date) => new Date(date).toISOString().replace(/\.\d{3}Z$/, 'Z');
 
+/**
+ * Links assinados dos anexos valem 1 hora. Guardamos cada um por 30 min (por instância),
+ * assim o chat — que atualiza sozinho — não pede ao Supabase um link novo a cada ciclo.
+ */
+const SIGNED_TTL_S = 3600;
+const SIGNED_CACHE_MS = 30 * 60 * 1000;
+const SIGNED_CACHE_MAX = 2000;
+const signedCache = new Map(); // caminho -> { url, exp }
+
+const cachedSignedUrl = (key) => {
+  const hit = signedCache.get(key);
+  if (hit && hit.exp > Date.now()) return hit.url;
+  if (hit) signedCache.delete(key);
+  return null;
+};
+
+const rememberSignedUrl = (key, url) => {
+  if (signedCache.size >= SIGNED_CACHE_MAX) signedCache.delete(signedCache.keys().next().value);
+  signedCache.set(key, { url, exp: Date.now() + SIGNED_CACHE_MS });
+};
+
+/** Gera de uma vez (1 chamada) os links dos anexos que ainda não estão no cache. */
+async function prefetchSignedUrls(keys) {
+  if (!supabase) return;
+  const missing = [...new Set(keys)].filter((k) => k && !k.startsWith('http') && !cachedSignedUrl(k));
+  if (missing.length < 2) return; // com 0 ou 1, o caminho normal já resolve
+  const { data, error } = await supabase.storage.from(CHAT_BUCKET).createSignedUrls(missing, SIGNED_TTL_S);
+  if (error || !Array.isArray(data)) return; // se falhar, cada mensagem tenta sozinha (como antes)
+  for (const item of data) {
+    if (!item.error && item.signedUrl && item.path) rememberSignedUrl(item.path, item.signedUrl);
+  }
+}
+
 export function communitiesRouter({ db, config }) {
   const router = Router();
 
@@ -125,16 +158,22 @@ const toMessage = async (row, me, isOwner) => {
   let attachmentUrl = row.attachment_url || null;
 
   if (attachmentUrl && !attachmentUrl.startsWith('http')) {
-    const { data, error } = await supabase.storage
-      .from(CHAT_BUCKET)
-      .createSignedUrl(attachmentUrl, 3600);
+    const cached = cachedSignedUrl(attachmentUrl);
+    if (cached) {
+      attachmentUrl = cached;
+    } else {
+      const { data, error } = await supabase.storage
+        .from(CHAT_BUCKET)
+        .createSignedUrl(attachmentUrl, SIGNED_TTL_S);
 
-    if (error) {
-      console.error('Erro ao gerar link do anexo:', error);
-      throw new HttpError(502, 'STORAGE_ERROR', 'Não foi possível acessar o anexo.');
+      if (error) {
+        console.error('Erro ao gerar link do anexo:', error);
+        throw new HttpError(502, 'STORAGE_ERROR', 'Não foi possível acessar o anexo.');
+      }
+
+      rememberSignedUrl(attachmentUrl, data.signedUrl);
+      attachmentUrl = data.signedUrl;
     }
-
-    attachmentUrl = data.signedUrl;
   }
 
   return {
@@ -248,6 +287,7 @@ router.get('/:id/messages', async (req, res) => {
   const id = parseId(req.params.id);
   const community = await loadAsMember(id, req.user.id);
   const rows = await listMessages(id);
+  await prefetchSignedUrls(rows.map((m) => m.attachment_url));
 
   const items = await Promise.all(
     rows.map((m) => toMessage(m, req.user.id, community.mine))

@@ -46,6 +46,25 @@ export function createApp({ config, db }) {
   );
   app.use(compression());
   if (config.logFormat) app.use(morgan(config.logFormat));
+  // ---- Front-end estático ----
+  // Fica ANTES do cookie/JSON/sessão: arquivos estáticos não precisam consultar o banco
+  // (antes, cada .js/.css/.html fazia uma consulta de sessão à toa).
+  // O CDN da Vercel guarda a cópia (s-maxage) e é limpo a cada novo deploy.
+  app.use(
+    express.static(config.publicDir, {
+      extensions: ['html'],
+      setHeaders(res, file) {
+        if (/\.(png|jpe?g|svg|ico|webp)$/i.test(file)) {
+          res.set('Cache-Control', 'public, max-age=604800');
+        } else if (/\.(js|css)$/i.test(file)) {
+          res.set('Cache-Control', 'public, max-age=300, s-maxage=3600');
+        } else {
+          res.set('Cache-Control', 'public, max-age=0, s-maxage=300, must-revalidate');
+        }
+      },
+    }),
+  );
+
   app.use(cookieParser());
   
   // ATUALIZADO: Aumentado para 10mb (suficiente para o JSON com os links)
@@ -70,17 +89,6 @@ export function createApp({ config, db }) {
   app.use('/api/notifications', notificationsRouter({ db }));
   app.use('/api/ai', aiRouter({ db, config }));
   app.use('/api', apiNotFound);
-
-  // ---- Front-end estático ----
-  app.use(
-    express.static(config.publicDir, {
-      extensions: ['html'],
-      setHeaders(res, file) {
-        const isImage = /\.(png|jpe?g|svg|ico|webp)$/i.test(file);
-        res.set('Cache-Control', isImage ? 'public, max-age=604800' : 'no-cache');
-      },
-    }),
-  );
 
   app.use(errorHandler(config));
   app.locals.sessions = sessions;
