@@ -17,7 +17,7 @@ const ICONS = {
 const LINKS = [
   { id: 'feed', href: 'feed.html', label: 'Início / Feed', icon: 'feed' },
   { id: 'materials', href: 'plataforma.html', label: 'Explorar materiais', icon: 'materials' },
-  { id: 'communities', href: 'plataforma.html#com', label: 'Explorar comunidades', icon: 'communities' },
+  { id: 'communities', href: 'plataforma.html#comunidades', label: 'Explorar comunidades', icon: 'communities' },
   { id: 'my-files', href: 'feed.html#my-files', label: 'Meus arquivos', icon: 'files' },
   { id: 'my-downloads', href: 'feed.html#my-downloads', label: 'Meus downloads', icon: 'downloads' },
   { id: 'my-communities', href: 'feed.html#my-communities', label: 'Minhas comunidades', icon: 'myCom' },
