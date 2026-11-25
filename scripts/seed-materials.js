@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { createClient } from '@supabase/supabase-js';
 import { loadConfig } from '../src/config.js';
 import { openDatabase } from '../src/db/index.js';
 import { hashPassword } from '../src/lib/passwords.js';
@@ -16,6 +17,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
 const SEED_DIR = path.join(ROOT, 'seed', 'materials');
 const MANIFEST = path.join(SEED_DIR, 'manifest.json');
+
+// Configura o Supabase para o Seed
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
 const STUDENTS = [
   { name: 'Ana Souza', email: 'ana.souza@estudai.demo', password: 'EstudaíDemo2024!' },
@@ -46,14 +52,17 @@ async function main() {
     console.error('Manifest não encontrado em', MANIFEST);
     process.exit(1);
   }
+  if (!supabase) {
+    console.error('ERRO: SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY precisam estar definidas no .env');
+    process.exit(1);
+  }
+
   const materials = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
   const config = loadConfig();
   const db = await openDatabase(config.databaseUrl, {
     ssl: config.databaseSsl,
     max: config.databasePoolMax,
   });
-
-  fs.mkdirSync(config.uploadDir, { recursive: true });
 
   console.log('Garantindo contas de estudantes…');
   const authorIds = [];
@@ -82,11 +91,24 @@ async function main() {
       continue;
     }
 
-    const storageKey = randomUUID();
-    const dest = path.join(config.uploadDir, storageKey);
-    fs.copyFileSync(src, dest);
-    const stat = fs.statSync(dest);
+    // Lê o arquivo e prepara o upload para o Supabase
+    const fileBuffer = fs.readFileSync(src);
+    const stat = fs.statSync(src);
+    const storageKey = `materials/${Date.now()}-${randomUUID()}`;
 
+    // 1. Faz o upload para o Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from('materials')
+      .upload(storageKey, fileBuffer, {
+        contentType: m.file.endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream',
+      });
+
+    if (uploadError) {
+      console.error('  ! Erro no upload para o Supabase:', uploadError.message);
+      continue;
+    }
+
+    // 2. Salva no Banco de Dados
     await db.run(
       `INSERT INTO materials
         (title, area, discipline, category, description, file_name, file_size, storage_key, author_id)
