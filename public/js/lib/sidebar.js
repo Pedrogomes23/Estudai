@@ -25,7 +25,7 @@ const LINKS = [
   { id: 'admin-communities', href: 'feed.html#admin-communities', label: 'Comunidades que administro', icon: 'adminCom' },
   { id: 'klyra', href: 'klyra.html', label: 'Klyra IA', icon: 'klyra' },
   { id: 'profile', href: 'profile.html', label: 'Meu perfil', icon: 'profile' },
-  { id: 'settings', href: 'feedback.html', label: 'Configurações / Feedback', icon: 'settings' },
+  { id: 'settings', href: 'feedback.html', label: 'Feedback', icon: 'settings' },
   { id: 'dashboard', href: 'admin.html', label: 'Dashboard', icon: 'dashboard', adminOnly: true },
 ];
 
