@@ -16,7 +16,7 @@ const publicUser = ({ id, name, email, bio, is_admin, created_at }) => ({
   name,
   email,
   isAdmin: Boolean(is_admin),
-  bio: bio || '',
+  bio: bio ?? '',
   createdAt: created_at
     ? new Date(created_at).toISOString().replace(/\.\d{3}Z$/, 'Z')
     : null,

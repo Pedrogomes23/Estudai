@@ -1,5 +1,6 @@
 import { ApiError, api } from '../lib/api.js';
 import { $, escapeHtml, ICON_DOWNLOAD } from '../lib/dom.js';
+import { initSidebar, setSidebarUser } from '../lib/sidebar.js';
 
 function initials(name) {
   return String(name || '?')
@@ -24,6 +25,8 @@ function handleError(err, fallback) {
 }
 
 async function boot() {
+  initSidebar({ active: 'profile' });
+
   try {
     const [profile, materials] = await Promise.all([
       api.profile.me(),
@@ -112,6 +115,5 @@ document.addEventListener('click', (e) => {
   }
 });
 
-$('menu-toggle')?.addEventListener('click', () => $('sidebar').classList.toggle('open'));
 
 boot();

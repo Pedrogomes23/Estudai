@@ -30,16 +30,25 @@ export function communitiesRouter({ db, config }) {
            COALESCE(c.created_by = $1, false) AS mine
       FROM communities c`;
 
-  // Busca sem diferenciar maiúsculas/acentos (extensão unaccent). $2 = texto buscado, $3 = 1 para só as minhas.
-  // Comunidades criadas por estudantes aparecem primeiro (mais novas antes); as oficiais mantêm a ordem original.
-  const list = (me, q, joined) =>
-    db.all(
+  // Filtros: q (texto), joined (participo), owned (administro), sort (recent|popular|name)
+  const list = (me, q, joined, owned, sort) => {
+    const order =
+      sort === 'popular'
+        ? `(SELECT COUNT(*) FROM community_members cm WHERE cm.community_id = c.id) DESC, c.created_at DESC`
+        : sort === 'name'
+          ? `c.name::text ASC`
+          : sort === 'recent'
+            ? `c.created_at DESC, c.id DESC`
+            : `c.is_official, CASE WHEN c.is_official THEN c.id ELSE -c.id END`;
+    return db.all(
       `${select}
      WHERE ($2::text = '' OR position(lower(unaccent($2::text)) IN lower(unaccent(c.name::text || ' ' || c.description))) > 0)
        AND ($3::int = 0 OR EXISTS (SELECT 1 FROM community_members cm WHERE cm.community_id = c.id AND cm.user_id = $1))
-     ORDER BY c.is_official, CASE WHEN c.is_official THEN c.id ELSE -c.id END`,
-      [me, q, joined],
+       AND ($4::int = 0 OR c.created_by = $1)
+     ORDER BY ${order}`,
+      [me, q, joined, owned],
     );
+  };
   const byId = (id, me) => db.get(`${select} WHERE c.id = $2`, [me, id]);
 
   const join = (communityId, userId) =>
@@ -119,8 +128,13 @@ export function communitiesRouter({ db, config }) {
 
   router.get('/', async (req, res) => {
     const q = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 100) : '';
-    const joined = req.query.joined === '1' ? 1 : 0;
-    res.json({ items: (await list(req.user.id, q, joined)).map(toApi) });
+    const joined = req.query.joined === '1' || req.query.joined === 'true' ? 1 : 0;
+    const owned = req.query.owned === '1' || req.query.owned === 'true' ? 1 : 0;
+    const sort = ['recent', 'popular', 'name', 'default'].includes(req.query.sort)
+      ? req.query.sort
+      : 'default';
+    const items = (await list(req.user.id, q, joined, owned, sort)).map(toApi);
+    res.json({ items });
   });
 
   router.post('/', async (req, res) => {

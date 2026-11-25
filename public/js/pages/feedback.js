@@ -1,5 +1,6 @@
 import { ApiError, api } from '../lib/api.js';
 import { $, escapeHtml } from '../lib/dom.js';
+import { initSidebar, setSidebarUser } from '../lib/sidebar.js';
 
 const MAX_MESSAGE = 1000;
 const MIN_MESSAGE = 10;
@@ -208,9 +209,11 @@ function bindEvents() {
 
 async function start() {
   try {
+    initSidebar({ active: 'settings' });
     const me = await api.auth.me();
     // Admin não envia feedback — avaliações ficam no Dashboard.
     if (me.isAdmin) return location.replace('admin.html');
+    setSidebarUser(me);
     $('hi').textContent = `Olá, ${me.name || 'estudante'}`;
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) return location.replace('login.html');

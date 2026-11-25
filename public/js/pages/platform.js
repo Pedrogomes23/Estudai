@@ -3,6 +3,7 @@ import { ApiError, api } from '../lib/api.js';
 api.auth.me().catch(() => location.replace('login.html'));
 
 import { $, debounce, escapeHtml, ICON_DOWNLOAD, ICON_USERS, initTabs } from '../lib/dom.js';
+import { initSidebar, setSidebarUser } from '../lib/sidebar.js';
 
 const state = { me: null, materials: [], totalMaterials: 0, communities: [], room: null };
 let setTab;
@@ -44,7 +45,13 @@ const onlyLatestMaterials = latest();
 async function loadMaterials() {
   try {
     const data = await onlyLatestMaterials(
-      api.materials.list({ q: $('q').value.trim(), category: $('cat').value }),
+      api.materials.list({
+        q: $('q').value.trim(),
+        category: $('cat').value,
+        discipline: $('discipline')?.value || '',
+        sort: $('sort-mat')?.value || 'recent',
+        mine: $('scope-mat')?.value === 'mine' ? '1' : '',
+      }),
     );
     if (!data) return;
     state.materials = data.items;
@@ -52,6 +59,23 @@ async function loadMaterials() {
     renderMaterials();
   } catch (err) {
     handleError(err, 'Não foi possível carregar as apostilas.');
+  }
+}
+
+async function loadDisciplines() {
+  try {
+    const items = await api.materials.disciplines();
+    const sel = $('discipline');
+    if (!sel) return;
+    const current = sel.value;
+    sel.innerHTML =
+      '<option value="">Todas as disciplinas</option>' +
+      (items || [])
+        .map((d) => `<option value="${escapeHtml(d.discipline)}">${escapeHtml(d.discipline)} (${d.count})</option>`)
+        .join('');
+    if (current) sel.value = current;
+  } catch {
+    /* filtro opcional */
   }
 }
 
@@ -158,8 +182,14 @@ const onlyLatestCommunities = latest();
 
 async function loadCommunities() {
   try {
+    const scope = $('fc')?.value || '';
     const items = await onlyLatestCommunities(
-      api.communities.list({ q: $('qc').value.trim(), joined: $('fc').value === 'mine' ? '1' : '' }),
+      api.communities.list({
+        q: $('qc').value.trim(),
+        joined: scope === 'joined' ? '1' : '',
+        owned: scope === 'owned' ? '1' : '',
+        sort: $('sort-com')?.value || 'default',
+      }),
     );
     if (!items) return;
     state.communities = items;
@@ -436,14 +466,22 @@ function closeModals() {
 }
 
 function bindEvents() {
+  const reloadMat = debounce(loadMaterials, 250);
+  $('q')?.addEventListener('input', reloadMat);
+  $('cat')?.addEventListener('change', loadMaterials);
+  $('discipline')?.addEventListener('change', loadMaterials);
+  $('sort-mat')?.addEventListener('change', loadMaterials);
+  $('scope-mat')?.addEventListener('change', loadMaterials);
+
+  const reloadCom = debounce(loadCommunities, 250);
+  $('qc')?.addEventListener('input', reloadCom);
+  $('fc')?.addEventListener('change', loadCommunities);
+  $('sort-com')?.addEventListener('change', loadCommunities);
+
   setTab = initTabs(['mat', 'com'], {
     onChange: (key) => history.replaceState(null, '', key === 'com' ? '#comunidades' : '#apostilas'),
   });
 
-  $('q').addEventListener('input', debounce(loadMaterials));
-  $('cat').addEventListener('change', loadMaterials);
-  $('qc').addEventListener('input', debounce(loadCommunities));
-  $('fc').addEventListener('change', loadCommunities);
   $('f-material').addEventListener('submit', addMaterial);
   $('f-community').addEventListener('submit', addCommunity);
 
@@ -487,6 +525,9 @@ async function logout(event) {
 }
 
 async function start() {
+  const path = location.hash === '#com' || location.hash === '#comunidades' ? 'communities' : 'materials';
+  initSidebar({ active: path });
+
   try {
     state.me = await api.auth.me();
   } catch (err) {
@@ -496,6 +537,7 @@ async function start() {
   const firstName = (state.me.name || 'estudante').split(' ')[0];
   const created = state.me.createdAt ? new Date(state.me.createdAt).getTime() : 0;
   const isNew = created && Date.now() - created < 30 * 60 * 1000; // conta com menos de 30 min
+  setSidebarUser(state.me);
   $('hi').textContent = isNew
     ? `Bem-vindo, ${state.me.name || 'estudante'}!`
     : `Bem-vindo de volta, ${state.me.name || 'estudante'}!`;
@@ -507,6 +549,7 @@ async function start() {
     });
   }
   bindEvents();
+  loadDisciplines();
   loadMaterials();
   loadCommunities();
   route();

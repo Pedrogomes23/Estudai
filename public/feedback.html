@@ -15,16 +15,26 @@
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/platform.css">
 <link rel="stylesheet" href="css/feedback.css">
+<link rel="stylesheet" href="css/feed.css">
 </head>
 <body>
-<div class="top">
-  <header>
-    <a class="logo" href="index.html" aria-label="Estudaí! – início">Estud<b>aí!</b></a>
-    <nav><a href="index.html">Início</a><a href="plataforma.html">Plataforma</a><a href="feedback.html" aria-current="page">Feedback</a><span class="hi" id="hi"></span><a href="#" data-logout>Sair</a></nav>
-  </header>
-</div>
-
-<main class="w">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <div class="topbar">
+      <button class="icon-btn menu-toggle" id="menu-toggle" aria-label="Abrir menu">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <strong style="font-family:'Baloo 2',sans-serif;font-size:18px">Feedback</strong>
+      <div class="actions">
+        <span class="hi" id="hi" style="color:var(--yel);font-weight:700;font-size:14px"></span>
+        <a class="icon-btn" href="profile.html" aria-label="Perfil">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="content">
+<main class="w" style="padding:0;max-width:none">
   <div class="head">
     <h1>Sua opinião faz o Estudaí! melhorar</h1>
     <p>Conte o que está funcionando, o que travou e o que você gostaria de ver por aqui. Leva menos de um minuto.</p>
@@ -109,6 +119,9 @@
     <div class="list" id="mine-list"></div>
   </section>
 </main>
+    </div><!-- .content -->
+  </div><!-- .main -->
+</div><!-- .layout -->
 
 <div class="msg" id="msg" role="status" hidden></div>
 

@@ -23,7 +23,7 @@ export function createSessionStore(db, { sessionDays }) {
     async find(token) {
       if (!token) return undefined;
       return db.get(
-        `SELECT u.id, u.name, u.email, COALESCE(u.bio, '') AS bio, COALESCE(u.is_admin, false) AS is_admin, u.created_at
+        `SELECT u.id, u.name, u.email, COALESCE(u.is_admin, false) AS is_admin, u.created_at
            FROM sessions s JOIN users u ON u.id = s.user_id
           WHERE s.id_hash = $1 AND s.expires_at > $2`,
         [sha256(token), Date.now()],

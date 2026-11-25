@@ -35,12 +35,16 @@ export default async function handler(req, res) {
     const app = await getApp();
     return app(req, res);
   } catch (err) {
-    console.error(`Falha ao iniciar a aplicação: ${err.message}`);
+    console.error('Falha ao iniciar a aplicação:', err);
     res.statusCode = 500;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.end(
       JSON.stringify({
-        error: { code: 'INTERNAL_ERROR', message: 'Erro interno. Tente novamente em instantes.' },
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Erro interno. Tente novamente em instantes.',
+          detail: process.env.NODE_ENV === 'production' ? undefined : String(err?.message || err),
+        },
       }),
     );
   }

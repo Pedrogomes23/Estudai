@@ -1,5 +1,6 @@
 import { ApiError, api } from '../lib/api.js';
 import { $, debounce, escapeHtml, ICON_DOWNLOAD } from '../lib/dom.js';
+import { initSidebar, setSidebarUser } from '../lib/sidebar.js';
 
 const state = {
   me: null,
@@ -44,6 +45,8 @@ function handleError(err, fallback) {
 /* ---------- Bootstrap ---------- */
 
 async function boot() {
+  initSidebar({ active: 'feed' });
+
   try {
     const [profile, materials, disciplines, activities, notifs] = await Promise.all([
       api.profile.me(),
@@ -64,6 +67,13 @@ async function boot() {
     renderFeed();
     renderActivities(activities);
     renderNotifications(notifs);
+
+    // Links vindos de outras páginas (#my-files, #my-downloads, etc.)
+    const hash = (location.hash || '').replace('#', '');
+    if (hash && ['my-files', 'my-downloads', 'my-communities', 'admin-communities'].includes(hash)) {
+      const link = document.querySelector(`[data-nav="${hash}"]`);
+      link?.click();
+    }
   } catch (err) {
     handleError(err, 'Não foi possível carregar sua área pessoal.');
   }
@@ -77,9 +87,7 @@ function renderUser() {
   $('greet-title').textContent = isNew
     ? `Bem-vindo, ${u.name.split(' ')[0]}!`
     : `Bem-vindo de volta, ${u.name.split(' ')[0]}!`;
-  $('side-name').textContent = u.name;
-  $('side-email').textContent = u.email;
-  $('side-av').textContent = initials(u.name);
+  setSidebarUser(u);
 }
 
 function renderStats() {
@@ -395,8 +403,5 @@ $('q').addEventListener(
 $('cat').addEventListener('change', () => loadMaterials());
 $('discipline').addEventListener('change', () => loadMaterials());
 
-$('menu-toggle')?.addEventListener('click', () => {
-  $('sidebar').classList.toggle('open');
-});
 
 boot();

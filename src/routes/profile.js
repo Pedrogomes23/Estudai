@@ -9,22 +9,23 @@ export function profileRouter({ db }) {
   /** Dados completos da conta autenticada + contadores */
   router.get('/me', async (req, res) => {
     const u = req.user;
-    const [materials, downloads, joined, owned] = await Promise.all([
+    const [row, materials, downloads, joined, owned] = await Promise.all([
+      db.get('SELECT id, name, email, COALESCE(bio, \'\') AS bio, COALESCE(is_admin, false) AS is_admin, created_at FROM users WHERE id = $1', [u.id]),
       db.get('SELECT COUNT(*)::int AS n FROM materials WHERE author_id = $1', [u.id]),
-      db.get('SELECT COUNT(*)::int AS n FROM material_downloads WHERE user_id = $1', [u.id]),
+      db.get('SELECT COUNT(*)::int AS n FROM material_downloads WHERE user_id = $1', [u.id]).catch(() => ({ n: 0 })),
       db.get('SELECT COUNT(*)::int AS n FROM community_members WHERE user_id = $1', [u.id]),
       db.get('SELECT COUNT(*)::int AS n FROM communities WHERE created_by = $1', [u.id]),
     ]);
 
     res.json({
       user: {
-        id: u.id,
-        name: u.name,
-        email: u.email,
-        bio: u.bio || '',
-        isAdmin: Boolean(u.is_admin),
-        createdAt: u.created_at
-          ? new Date(u.created_at).toISOString().replace(/\.\d{3}Z$/, 'Z')
+        id: row.id,
+        name: row.name,
+        email: row.email,
+        bio: row.bio || '',
+        isAdmin: Boolean(row.is_admin),
+        createdAt: row.created_at
+          ? new Date(row.created_at).toISOString().replace(/\.\d{3}Z$/, 'Z')
           : null,
       },
       stats: {
