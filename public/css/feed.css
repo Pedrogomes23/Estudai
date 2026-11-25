@@ -124,3 +124,17 @@ body.sidebar-open{overflow:hidden}
   .quick-cards{grid-template-columns:1fr 1fr}
   .content{padding:14px}
 }
+
+/* Corrige o ícone de downloads nas apostilas */
+.mcard .acts .stat svg {
+  width: 15px;
+  height: 15px;
+  display: inline-block;
+  vertical-align: -3px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
