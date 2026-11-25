@@ -45,3 +45,79 @@ summary {
 summary::-webkit-details-marker {
   display: none;
 }
+
+/* --- ESTILOS DO CHAT (BOTÃO DE ANEXO E MENU) --- */
+.send { display: flex; gap: 8px; align-items: center; position: relative; }
+.attach-btn { 
+  background: transparent; 
+  border: 1px solid var(--line); 
+  color: var(--mut); 
+  width: 44px; 
+  height: 44px; 
+  border-radius: 12px; 
+  display: grid; 
+  place-items: center; 
+  cursor: pointer; 
+  transition: 0.2s; 
+  flex-shrink: 0;
+}
+.attach-btn:hover { color: #fff; border-color: var(--pur); background: var(--card); }
+.attach-btn:disabled { opacity: 0.5; cursor: wait; }
+.attach-btn svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Menu Flutuante do Clipe */
+.attach-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 8px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 10;
+  min-width: 200px;
+}
+.attach-menu button {
+  background: transparent;
+  border: 0;
+  padding: 12px 16px;
+  text-align: left;
+  color: var(--fg);
+  font: 600 14px Nunito, sans-serif;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.attach-menu button:hover {
+  background: rgba(132, 121, 220, 0.15);
+  color: var(--yel);
+}
+.attach-menu svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Lista de Materiais no Modal (Opção 2) */
+.lista-materiais-chat {
+  max-height: 300px; 
+  overflow-y: auto; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 8px;
+}
+.card-material-chat {
+  display:flex; 
+  flex-direction:column; 
+  align-items:flex-start; 
+  background:var(--bg); 
+  border:1px solid var(--line); 
+  padding:10px; 
+  border-radius:8px; 
+  cursor:pointer; 
+  width:100%; 
+  text-align:left;
+  transition: 0.2s;
+}
+.card-material-chat:hover { border-color: var(--pur); }

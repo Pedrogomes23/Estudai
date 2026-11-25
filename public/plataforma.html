@@ -16,10 +16,10 @@
 <link rel="stylesheet" href="css/platform.css">
 <link rel="stylesheet" href="css/feed.css">
 <style>
-/* Estilo extra para o botão de anexo ficar alinhado no chat */
-.send { display: flex; gap: 8px; align-items: center; }
+/* --- ESTILOS DO BOTÃO DE ANEXO E MENU --- */
+.send { display: flex; gap: 8px; align-items: center; position: relative; }
 .attach-btn { 
-  background: var(--bar); 
+  background: transparent; 
   border: 1px solid var(--line); 
   color: var(--mut); 
   width: 44px; 
@@ -31,9 +31,66 @@
   transition: 0.2s; 
   flex-shrink: 0;
 }
-.attach-btn:hover { color: #fff; border-color: var(--pur); }
+.attach-btn:hover { color: #fff; border-color: var(--pur); background: var(--card); }
 .attach-btn:disabled { opacity: 0.5; cursor: wait; }
 .attach-btn svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Menu Flutuante */
+.attach-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 8px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 10;
+  min-width: 200px;
+}
+.attach-menu button {
+  background: transparent;
+  border: 0;
+  padding: 12px 16px;
+  text-align: left;
+  color: var(--fg);
+  font: 600 14px Nunito, sans-serif;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.attach-menu button:hover {
+  background: rgba(132, 121, 220, 0.15);
+  color: var(--yel);
+}
+.attach-menu svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Modal de Materiais */
+.lista-materiais-chat {
+  max-height: 300px; 
+  overflow-y: auto; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 8px;
+}
+.card-material-chat {
+  display:flex; 
+  flex-direction:column; 
+  align-items:flex-start; 
+  background:var(--bg); 
+  border:1px solid var(--line); 
+  padding:10px; 
+  border-radius:8px; 
+  cursor:pointer; 
+  width:100%; 
+  text-align:left;
+  transition: 0.2s;
+}
+.card-material-chat:hover { border-color: var(--pur); }
 </style>
 </head>
 <body>
@@ -195,11 +252,24 @@
       <section class="chat" aria-label="Chat da comunidade">
         <div class="msgs" id="room-msgs" role="log" aria-live="polite"></div>
         
-        <!-- FORMULÁRIO DO CHAT ATUALIZADO COM O BOTÃO DE CLIPE -->
+        <!-- FORMULÁRIO DO CHAT ATUALIZADO COM O BOTÃO DE CLIPE E MENU -->
         <form class="send" id="f-chat">
           <button type="button" id="btn-attach" class="attach-btn" title="Anexar arquivo">
             <svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"></path></svg>
           </button>
+          
+          <!-- MENU FLUTUANTE DE OPÇÕES -->
+          <div id="attach-menu" class="attach-menu" hidden>
+            <button type="button" id="opt-upload-pc">
+              <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+              Do meu computador
+            </button>
+            <button type="button" id="opt-upload-plataforma">
+              <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+              Materiais da plataforma
+            </button>
+          </div>
+
           <input type="file" id="file-input" accept="image/*, .pdf, .doc, .docx" hidden>
           
           <input id="chat-input" maxlength="1000" autocomplete="off" placeholder="Escreva uma mensagem" aria-label="Mensagem">
@@ -266,6 +336,22 @@
     <textarea id="cd" required maxlength="160" placeholder="Explique em uma frase o que o grupo estuda."></textarea>
     <p class="err" id="ce" role="alert"></p>
     <div class="btns"><button class="btn" type="submit">Criar comunidade</button><button class="btn o" type="button" data-action="close-modal">Cancelar</button></div>
+  </form>
+</div>
+
+<!-- Modal: Escolher material da plataforma (Opção 2) -->
+<div class="modal" id="modal-materiais" role="dialog" aria-modal="true" aria-label="Escolher material">
+  <form id="f-escolher-material" style="max-width: 500px;">
+    <button class="x" type="button" aria-label="Fechar" data-action="close-modal">&times;</button>
+    <h3>Materiais da Plataforma</h3><span class="ul"></span>
+    
+    <div class="field" style="margin-bottom: 12px;">
+      <input type="search" id="busca-material-chat" placeholder="Pesquisar material..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg);">
+    </div>
+
+    <div id="lista-materiais-chat" class="lista-materiais-chat">
+      <!-- Os materiais vão aparecer aqui via JS -->
+    </div>
   </form>
 </div>
 

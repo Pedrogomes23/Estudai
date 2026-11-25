@@ -5,11 +5,10 @@ api.auth.me().catch(() => location.replace('login.html'));
 import { $, debounce, escapeHtml, ICON_DOWNLOAD, ICON_USERS, initTabs } from '../lib/dom.js';
 import { initSidebar, setSidebarUser } from '../lib/sidebar.js';
 
-// IMPORTANTE: Importando o Supabase Client para o upload de arquivos do chat
-// Se você já tem um arquivo de configuração do Supabase (ex: supabase.js), troque esta linha pelo import dele.
+// Importando o Supabase Client para o upload de arquivos do chat
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-const supabaseUrl = 'https://abozwskrdzmxljnjlaai.supabase.co'; // Substitua pelo seu Project URL
-const supabaseKey = 'sb_publishable_e3uyPCYDct4Xd_Qc7szWsw_yC73UEQq'; // Substitua pela sua chave anon public (encontrada no Project Settings > API)
+const supabaseUrl = 'https://abozwskrdzmxljnjlaai.supabase.co'; 
+const supabaseKey = 'sb_publishable_e3uyPCYDct4Xd_Qc7szWsw_yC73UEQq'; 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const state = { me: null, materials: [], totalMaterials: 0, communities: [], room: null };
@@ -503,6 +502,67 @@ async function uploadAttachment(event) {
   }
 }
 
+/* ---------- LÓGICA DO MODAL DE MATERIAIS (OPÇÃO 2) ---------- */
+async function abrirModalMateriais() {
+  $('modal-materiais').classList.add('s');
+  const lista = $('lista-materiais-chat');
+  lista.innerHTML = '<p style="text-align:center;color:var(--mut);font-size:13px">Carregando materiais...</p>';
+  
+  try {
+    const data = await api.materials.list({ sort: 'recent' });
+    
+    if (data.items.length === 0) {
+      lista.innerHTML = '<p style="text-align:center;color:var(--mut);font-size:13px">Nenhum material encontrado.</p>';
+      return;
+    }
+
+    lista.innerHTML = data.items.map(m => `
+      <button type="button" class="card-material-chat" onclick="window.enviarMaterialDoChat(${m.id}, '${escapeHtml(m.title)}', '${escapeHtml(m.fileName || 'Arquivo.pdf')}')">
+        <strong style="color:var(--fg); font-size:14px">${escapeHtml(m.title)}</strong>
+        <span style="color:var(--mut); font-size:12px">${escapeHtml(m.category)} · ${escapeHtml(m.author)}</span>
+      </button>
+    `).join('');
+
+  } catch (err) {
+    lista.innerHTML = '<p style="text-align:center;color:var(--err);font-size:13px">Erro ao carregar materiais.</p>';
+  }
+}
+
+// Função chamada pelo botão do material (inline)
+window.enviarMaterialDoChat = async function(id, titulo, nomeArquivo) {
+  // Fecha o modal
+  $('modal-materiais').classList.remove('s');
+  
+  const btn = $('btn-attach');
+  btn.disabled = true;
+  btn.innerHTML = '⏳';
+
+  try {
+    // 1. Faz o download do arquivo pela API (para manter o login e contar os downloads)
+    const blob = await api.materials.download(id);
+    
+    // 2. Cria um link local (temporário) para o arquivo
+    const urlLocal = URL.createObjectURL(blob);
+    
+    // 3. Envia a mensagem no chat com esse link local e o tipo forçado como PDF
+    await api.communities.send(state.room.id, `Enviou o material: ${titulo}`, urlLocal, 'application/pdf');
+    
+    // Atualiza o chat
+    state.room.signature = ''; 
+    await refreshRoom(true);
+
+    // (Opcional) Libera a memória depois de 1 minuto
+    setTimeout(() => URL.revokeObjectURL(urlLocal), 60000);
+
+  } catch (err) {
+    console.error(err);
+    $('chat-err').textContent = 'Erro ao enviar o material. Verifique sua conexão.';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"></path></svg>`;
+  }
+};
+
 async function deleteMessage(messageId) {
   const room = state.room;
   if (!room || !confirm('Excluir esta mensagem?')) return;
@@ -533,6 +593,7 @@ async function leaveRoom() {
 function closeModals() {
   $('mm').classList.remove('s');
   $('mc').classList.remove('s');
+  $('modal-materiais')?.classList.remove('s');
 }
 
 function bindEvents() {
@@ -583,9 +644,48 @@ function bindEvents() {
 
   $('f-chat').addEventListener('submit', sendMessage);
   
-  // Eventos do botão de anexo
-  $('btn-attach')?.addEventListener('click', () => $('file-input').click());
-  $('file-input')?.addEventListener('change', uploadAttachment);
+  // --- NOVA LÓGICA DO BOTÃO DE ANEXO ---
+  const btnAttach = $('btn-attach');
+  const attachMenu = $('attach-menu');
+  const fileInput = $('file-input');
+
+  // Abre/fecha o menu
+  btnAttach?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    attachMenu.hidden = !attachMenu.hidden;
+  });
+
+  // Fecha o menu se clicar fora
+  document.addEventListener('click', (e) => {
+    if (attachMenu && !attachMenu.hidden && !attachMenu.contains(e.target) && e.target !== btnAttach) {
+      attachMenu.hidden = true;
+    }
+  });
+
+  // Opção 1: Upload do PC
+  $('opt-upload-pc')?.addEventListener('click', () => {
+    attachMenu.hidden = true;
+    fileInput.click();
+  });
+
+  // Opção 2: Materiais da Plataforma
+  $('opt-upload-plataforma')?.addEventListener('click', () => {
+    attachMenu.hidden = true;
+    abrirModalMateriais();
+  });
+
+  // Evento de mudança do arquivo
+  fileInput?.addEventListener('change', uploadAttachment);
+  
+  // Busca no modal de materiais
+  $('busca-material-chat')?.addEventListener('input', (e) => {
+    const termo = e.target.value.toLowerCase();
+    const botoes = document.querySelectorAll('#lista-materiais-chat button');
+    botoes.forEach(btn => {
+      const titulo = btn.querySelector('strong').textContent.toLowerCase();
+      btn.style.display = titulo.includes(termo) ? 'flex' : 'none';
+    });
+  });
 
   window.addEventListener('hashchange', route);
 }
@@ -628,6 +728,5 @@ async function start() {
   loadCommunities();
   route();
 }
-
 
 start();
