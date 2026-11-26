@@ -1,28 +1,45 @@
 import { api } from './api.js';
-import { $ } from './dom.js';
 
 const ICONS = {
   feed: '<svg viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5V21a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1v-10.5z"/></svg>',
-  materials: '<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>',
-  communities: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><circle cx="16" cy="9" r="2.5"/><path d="M3 20c0-3.5 3-5.5 6-5.5s6 2 6 5.5"/><path d="M14 20c0-2.2 1.5-3.5 3.5-3.5S21 17.8 21 20"/></svg>',
-  files: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>',
+  materials:
+    '<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>',
+  communities:
+    '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><circle cx="16" cy="9" r="2.5"/><path d="M3 20c0-3.5 3-5.5 6-5.5s6 2 6 5.5"/><path d="M14 20c0-2.2 1.5-3.5 3.5-3.5S21 17.8 21 20"/></svg>',
+  files:
+    '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>',
   downloads: '<svg viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>',
-  myCom: '<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>',
+  myCom:
+    '<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>',
   adminCom: '<svg viewBox="0 0 24 24"><path d="M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/></svg>',
-  profile: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>',
-  settings: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
-  dashboard: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>',
-  klyra: '<svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 017 7c0 3.5-2.5 6.4-6 7.3V19h-2v-2.7c-3.5-.9-6-3.8-6-7.3a7 7 0 017-7z"/><path d="M9 21h6"/></svg>',
+  profile:
+    '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>',
+  settings:
+    '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  dashboard:
+    '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>',
+  klyra:
+    '<svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 017 7c0 3.5-2.5 6.4-6 7.3V19h-2v-2.7c-3.5-.9-6-3.8-6-7.3a7 7 0 017-7z"/><path d="M9 21h6"/></svg>',
 };
 
 const LINKS = [
   { id: 'feed', href: 'feed.html', label: 'Início / Feed', icon: 'feed' },
   { id: 'materials', href: 'plataforma.html', label: 'Explorar materiais', icon: 'materials' },
-  { id: 'communities', href: 'plataforma.html#comunidades', label: 'Explorar comunidades', icon: 'communities' },
+  {
+    id: 'communities',
+    href: 'plataforma.html#comunidades',
+    label: 'Explorar comunidades',
+    icon: 'communities',
+  },
   { id: 'my-files', href: 'feed.html#my-files', label: 'Meus arquivos', icon: 'files' },
   { id: 'my-downloads', href: 'feed.html#my-downloads', label: 'Meus downloads', icon: 'downloads' },
   { id: 'my-communities', href: 'feed.html#my-communities', label: 'Minhas comunidades', icon: 'myCom' },
-  { id: 'admin-communities', href: 'feed.html#admin-communities', label: 'Comunidades que administro', icon: 'adminCom' },
+  {
+    id: 'admin-communities',
+    href: 'feed.html#admin-communities',
+    label: 'Comunidades que administro',
+    icon: 'adminCom',
+  },
   { id: 'klyra', href: 'klyra.html', label: 'Klyra IA', icon: 'klyra' },
   { id: 'profile', href: 'profile.html', label: 'Meu perfil', icon: 'profile' },
   { id: 'settings', href: 'feedback.html', label: 'Feedback', icon: 'settings' },

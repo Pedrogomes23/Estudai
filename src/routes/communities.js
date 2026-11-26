@@ -13,18 +13,17 @@ const CHAT_BUCKET = 'chat-attachments';
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const supabase =
-  supabaseUrl && supabaseKey
-    ? createClient(supabaseUrl, supabaseKey)
-    : null;
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
 function cleanChatFileName(raw) {
-  return String(raw || 'arquivo')
-    .replace(/\\/g, '/')
-    .split('/')
-    .pop()
-    .replace(/[^\w.-]/g, '_')
-    .slice(0, 120) || 'arquivo';
+  return (
+    String(raw || 'arquivo')
+      .replace(/\\/g, '/')
+      .split('/')
+      .pop()
+      .replace(/[^\w.-]/g, '_')
+      .slice(0, 120) || 'arquivo'
+  );
 }
 
 const toApi = (row) => ({
@@ -87,7 +86,7 @@ export function communitiesRouter({ db, config }) {
   const list = (me, q, joined, owned, sort) => {
     const order =
       sort === 'popular'
-        ? `(SELECT COUNT(*) FROM community_members cm WHERE cm.community_id = c.id) DESC, c.created_at DESC`
+        ? `members DESC, c.created_at DESC`
         : sort === 'name'
           ? `c.name::text ASC`
           : sort === 'recent'
@@ -120,7 +119,7 @@ export function communitiesRouter({ db, config }) {
         ORDER BY owner DESC, cm.joined_at ASC, u.id ASC`,
       [communityId],
     );
-    
+
   const listMessages = (communityId) =>
     db.all(
       `SELECT * FROM (
@@ -154,39 +153,39 @@ export function communitiesRouter({ db, config }) {
     return row;
   };
 
-const toMessage = async (row, me, isOwner) => {
-  let attachmentUrl = row.attachment_url || null;
+  const toMessage = async (row, me, isOwner) => {
+    let attachmentUrl = row.attachment_url || null;
 
-  if (attachmentUrl && !attachmentUrl.startsWith('http')) {
-    const cached = cachedSignedUrl(attachmentUrl);
-    if (cached) {
-      attachmentUrl = cached;
-    } else {
-      const { data, error } = await supabase.storage
-        .from(CHAT_BUCKET)
-        .createSignedUrl(attachmentUrl, SIGNED_TTL_S);
+    if (attachmentUrl && !attachmentUrl.startsWith('http')) {
+      const cached = cachedSignedUrl(attachmentUrl);
+      if (cached) {
+        attachmentUrl = cached;
+      } else {
+        const { data, error } = await supabase.storage
+          .from(CHAT_BUCKET)
+          .createSignedUrl(attachmentUrl, SIGNED_TTL_S);
 
-      if (error) {
-        console.error('Erro ao gerar link do anexo:', error);
-        throw new HttpError(502, 'STORAGE_ERROR', 'Não foi possível acessar o anexo.');
+        if (error) {
+          console.error('Erro ao gerar link do anexo:', error);
+          throw new HttpError(502, 'STORAGE_ERROR', 'Não foi possível acessar o anexo.');
+        }
+
+        rememberSignedUrl(attachmentUrl, data.signedUrl);
+        attachmentUrl = data.signedUrl;
       }
-
-      rememberSignedUrl(attachmentUrl, data.signedUrl);
-      attachmentUrl = data.signedUrl;
     }
-  }
 
-  return {
-    id: row.id,
-    body: row.body,
-    createdAt: toIso(row.created_at),
-    author: { id: row.user_id, name: row.author },
-    mine: row.user_id === me,
-    canDelete: row.user_id === me || isOwner,
-    attachmentUrl,
-    attachmentType: row.attachment_type || null,
+    return {
+      id: row.id,
+      body: row.body,
+      createdAt: toIso(row.created_at),
+      author: { id: row.user_id, name: row.author },
+      mine: row.user_id === me,
+      canDelete: row.user_id === me || isOwner,
+      attachmentUrl,
+      attachmentType: row.attachment_type || null,
+    };
   };
-};
 
   const chatLimiter = config.rateLimit.enabled
     ? rateLimit({
@@ -264,7 +263,8 @@ const toMessage = async (row, me, isOwner) => {
 
   router.delete('/:id', async (req, res) => {
     const row = await load(parseId(req.params.id), req.user.id);
-    if (!row.mine && !req.user.is_admin) throw forbidden('Só quem criou a comunidade ou um administrador pode excluí-la.');
+    if (!row.mine && !req.user.is_admin)
+      throw forbidden('Só quem criou a comunidade ou um administrador pode excluí-la.');
     await db.run('DELETE FROM communities WHERE id = $1', [row.id]);
     res.status(204).end();
   });
@@ -283,156 +283,141 @@ const toMessage = async (row, me, isOwner) => {
     res.json({ items });
   });
 
-router.get('/:id/messages', async (req, res) => {
-  const id = parseId(req.params.id);
-  const community = await loadAsMember(id, req.user.id);
-  const rows = await listMessages(id);
-  await prefetchSignedUrls(rows.map((m) => m.attachment_url));
+  router.get('/:id/messages', async (req, res) => {
+    const id = parseId(req.params.id);
+    const community = await loadAsMember(id, req.user.id);
+    const rows = await listMessages(id);
+    await prefetchSignedUrls(rows.map((m) => m.attachment_url));
 
-  const items = await Promise.all(
-    rows.map((m) => toMessage(m, req.user.id, community.mine))
-  );
+    const items = await Promise.all(rows.map((m) => toMessage(m, req.user.id, community.mine)));
 
-  res.json({ items });
-});
+    res.json({ items });
+  });
   router.post('/:id/attachments/upload-url', chatLimiter, async (req, res) => {
-  const id = parseId(req.params.id);
-  await loadAsMember(id, req.user.id);
+    const id = parseId(req.params.id);
+    await loadAsMember(id, req.user.id);
 
-  if (!supabase) {
-    throw new HttpError(503, 'STORAGE_UNAVAILABLE', 'Armazenamento indisponível.');
-  }
+    if (!supabase) {
+      throw new HttpError(503, 'STORAGE_UNAVAILABLE', 'Armazenamento indisponível.');
+    }
 
-  const fileName = cleanChatFileName(req.body?.fileName);
-  const contentType =
-    typeof req.body?.contentType === 'string'
-      ? req.body.contentType.slice(0, 150)
-      : 'application/octet-stream';
+    const fileName = cleanChatFileName(req.body?.fileName);
+    const contentType =
+      typeof req.body?.contentType === 'string'
+        ? req.body.contentType.slice(0, 150)
+        : 'application/octet-stream';
 
-  const size = Number(req.body?.size);
+    const size = Number(req.body?.size);
 
-  if (!Number.isFinite(size) || size <= 0 || size > config.uploadMaxBytes) {
-    throw badRequest('Arquivo inválido ou maior que o limite permitido.');
-  }
+    if (!Number.isFinite(size) || size <= 0 || size > config.uploadMaxBytes) {
+      throw badRequest('Arquivo inválido ou maior que o limite permitido.');
+    }
 
-  const path = `${id}/${req.user.id}/${randomUUID()}-${fileName}`;
+    const path = `${id}/${req.user.id}/${randomUUID()}-${fileName}`;
 
-  const { data, error } = await supabase.storage
-    .from(CHAT_BUCKET)
-    .createSignedUploadUrl(path, { upsert: false });
+    const { data, error } = await supabase.storage
+      .from(CHAT_BUCKET)
+      .createSignedUploadUrl(path, { upsert: false });
 
-  if (error) {
-    console.error('Erro ao criar autorização de upload:', error);
-    throw new HttpError(502, 'STORAGE_ERROR', 'Não foi possível preparar o envio do arquivo.');
-  }
+    if (error) {
+      console.error('Erro ao criar autorização de upload:', error);
+      throw new HttpError(502, 'STORAGE_ERROR', 'Não foi possível preparar o envio do arquivo.');
+    }
 
-  res.json({ path, token: data.token, contentType });
-});
+    res.json({ path, token: data.token, contentType });
+  });
 
-router.post('/:id/attachments/complete', chatLimiter, async (req, res) => {
-  const id = parseId(req.params.id);
-  const community = await loadAsMember(id, req.user.id);
+  router.post('/:id/attachments/complete', chatLimiter, async (req, res) => {
+    const id = parseId(req.params.id);
+    const community = await loadAsMember(id, req.user.id);
 
-  if (!supabase) {
-    throw new HttpError(503, 'STORAGE_UNAVAILABLE', 'Armazenamento indisponível.');
-  }
+    if (!supabase) {
+      throw new HttpError(503, 'STORAGE_UNAVAILABLE', 'Armazenamento indisponível.');
+    }
 
-  const { path, body, attachmentType } = req.body || {};
-  const prefix = `${id}/${req.user.id}/`;
+    const { path, body, attachmentType } = req.body || {};
+    const prefix = `${id}/${req.user.id}/`;
 
-  if (
-    typeof path !== 'string' ||
-    !path.startsWith(prefix) ||
-    path.slice(prefix.length).includes('/')
-  ) {
-    throw badRequest('Caminho do anexo inválido.');
-  }
+    if (typeof path !== 'string' || !path.startsWith(prefix) || path.slice(prefix.length).includes('/')) {
+      throw badRequest('Caminho do anexo inválido.');
+    }
 
-  const { data: fileInfo, error: infoError } = await supabase.storage
-    .from(CHAT_BUCKET)
-    .info(path);
+    const { data: fileInfo, error: infoError } = await supabase.storage.from(CHAT_BUCKET).info(path);
 
-  if (infoError || !fileInfo) {
-    throw badRequest('O arquivo não foi encontrado no armazenamento.');
-  }
+    if (infoError || !fileInfo) {
+      throw badRequest('O arquivo não foi encontrado no armazenamento.');
+    }
 
-  const { data: urlData, error: urlError } = await supabase.storage
-    .from(CHAT_BUCKET)
-    .createSignedUrl(path, 3600);
+    const { error: urlError } = await supabase.storage.from(CHAT_BUCKET).createSignedUrl(path, 3600);
 
-  if (urlError) {
-    console.error('Erro ao gerar link do anexo:', urlError);
-    throw new HttpError(502, 'STORAGE_ERROR', 'Não foi possível gerar o link do arquivo.');
-  }
+    if (urlError) {
+      console.error('Erro ao gerar link do anexo:', urlError);
+      throw new HttpError(502, 'STORAGE_ERROR', 'Não foi possível gerar o link do arquivo.');
+    }
 
-  const messageBody = typeof body === 'string' ? body.slice(0, 5000) : '';
-  const type =
-    typeof attachmentType === 'string'
-      ? attachmentType.slice(0, 150)
-      : 'application/octet-stream';
+    const messageBody = typeof body === 'string' ? body.slice(0, 5000) : '';
+    const type =
+      typeof attachmentType === 'string' ? attachmentType.slice(0, 150) : 'application/octet-stream';
 
-  const { id: messageId } = await db.get(
-    `INSERT INTO community_messages
+    const { id: messageId } = await db.get(
+      `INSERT INTO community_messages
       (community_id, user_id, body, attachment_url, attachment_type)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING id`,
-    [id, req.user.id, messageBody, path, type],
-  );
+      [id, req.user.id, messageBody, path, type],
+    );
 
-  const row = await messageById(messageId, id);
-  const item = await toMessage(row, req.user.id, community.mine);
+    const row = await messageById(messageId, id);
+    const item = await toMessage(row, req.user.id, community.mine);
 
-  res.status(201).json({ item });
-});
+    res.status(201).json({ item });
+  });
 
-router.post('/:id/messages', chatLimiter, async (req, res) => {
-  const id = parseId(req.params.id);
-  const community = await loadAsMember(id, req.user.id);
-  const body = typeof req.body?.body === 'string' ? req.body.body.trim() : '';
+  router.post('/:id/messages', chatLimiter, async (req, res) => {
+    const id = parseId(req.params.id);
+    const community = await loadAsMember(id, req.user.id);
+    const body = typeof req.body?.body === 'string' ? req.body.body.trim() : '';
 
-  if (!body) {
-    throw badRequest('A mensagem não pode estar vazia.');
-  }
-  if (body.length > 1000) {
-    throw badRequest('A mensagem deve ter no máximo 1000 caracteres.');
-  }
+    if (!body) {
+      throw badRequest('A mensagem não pode estar vazia.');
+    }
+    if (body.length > 1000) {
+      throw badRequest('A mensagem deve ter no máximo 1000 caracteres.');
+    }
 
-  const { id: messageId } = await db.get(
-    `INSERT INTO community_messages
+    const { id: messageId } = await db.get(
+      `INSERT INTO community_messages
       (community_id, user_id, body, attachment_url, attachment_type)
      VALUES ($1, $2, $3, NULL, NULL)
      RETURNING id`,
-    [id, req.user.id, body],
-  );
+      [id, req.user.id, body],
+    );
 
-  const row = await messageById(messageId, id);
-  const item = await toMessage(row, req.user.id, community.mine);
+    const row = await messageById(messageId, id);
+    const item = await toMessage(row, req.user.id, community.mine);
 
-  res.status(201).json({ item });
-});
+    res.status(201).json({ item });
+  });
 
-router.delete('/:id/messages/:messageId', async (req, res) => {
-  const id = parseId(req.params.id);
-  const community = await loadAsMember(id, req.user.id);
-  const messageId = parseId(req.params.messageId);
+  router.delete('/:id/messages/:messageId', async (req, res) => {
+    const id = parseId(req.params.id);
+    const community = await loadAsMember(id, req.user.id);
+    const messageId = parseId(req.params.messageId);
 
-  const row = await messageById(messageId, id);
+    const row = await messageById(messageId, id);
 
-  if (!row) {
-    throw notFound('Mensagem não encontrada.');
-  }
+    if (!row) {
+      throw notFound('Mensagem não encontrada.');
+    }
 
-  if (row.user_id !== req.user.id && !community.mine) {
-    throw forbidden('Você só pode excluir as suas mensagens.');
-  }
+    if (row.user_id !== req.user.id && !community.mine) {
+      throw forbidden('Você só pode excluir as suas mensagens.');
+    }
 
-  await db.run(
-    'DELETE FROM community_messages WHERE id = $1',
-    [messageId],
-  );
+    await db.run('DELETE FROM community_messages WHERE id = $1', [messageId]);
 
-  res.status(204).end();
-});
+    res.status(204).end();
+  });
 
   return router;
 }

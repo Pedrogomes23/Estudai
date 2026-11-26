@@ -1,5 +1,5 @@
 import { ApiError, api } from '../lib/api.js';
-import { $, debounce, escapeHtml, ICON_DOWNLOAD } from '../lib/dom.js';
+import { $, debounce, escapeHtml } from '../lib/dom.js';
 import { initSidebar, setSidebarUser } from '../lib/sidebar.js';
 
 const state = {
@@ -10,15 +10,6 @@ const state = {
   view: 'feed',
   disciplines: [],
 };
-
-function initials(name) {
-  return String(name || '?')
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((p) => p[0] || '')
-    .join('')
-    .toUpperCase();
-}
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -48,11 +39,9 @@ async function boot() {
   initSidebar({ active: 'feed' });
 
   try {
-    const [profile, materials, activities, notifs] = await Promise.all([
+    const [profile, materials] = await Promise.all([
       api.profile.me(),
       api.materials.list({ sort: 'recent' }),
-      api.profile.activities().catch(() => []),
-      api.notifications.list().catch(() => ({ items: [], unread: 0 })),
     ]);
 
     state.me = profile.user;
@@ -62,8 +51,19 @@ async function boot() {
     renderUser();
     renderStats();
     renderFeed();
-    renderActivities(activities);
-    renderNotifications(notifs);
+
+    // Dados secundários carregam sem bloquear a exibição do feed principal.
+    const activitiesPromise = api.profile
+      .activities()
+      .catch(() => [])
+      .then(renderActivities);
+
+    const notificationsPromise = api.notifications
+      .list()
+      .catch(() => ({ items: [], unread: 0 }))
+      .then(renderNotifications);
+
+    await Promise.all([activitiesPromise, notificationsPromise]);
 
     // Links vindos de outras páginas (#my-files, #my-downloads, etc.)
     const hash = (location.hash || '').replace('#', '');
@@ -95,35 +95,119 @@ function renderStats() {
   $('stat-owned').textContent = s.communitiesOwned ?? 0;
 }
 
+function renderViewHeader() {
+  const title = $('greet-title');
+  const description = document.querySelector('.greet p');
+  const quickCards = $('quick-cards');
+  const filters = $('filters');
+  const search = $('q');
+
+  const views = {
+    feed: ['Bem-vindo!', 'Descubra materiais da comunidade e acompanhe suas atividades.'],
+    'my-files': ['Meus arquivos', 'Sua biblioteca pessoal de materiais compartilhados.'],
+    'my-downloads': ['Meus downloads', 'Consulte os materiais que você baixou recentemente.'],
+    'my-communities': ['Minhas comunidades', 'Acompanhe as comunidades das quais você participa.'],
+    'admin-communities': [
+      'Comunidades que administro',
+      'Gerencie as comunidades que estão sob sua responsabilidade.',
+    ],
+  };
+
+  const current = views[state.view] || views.feed;
+  if (title) title.textContent = state.view === 'feed' ? `${current[0]}` : current[0];
+
+  if (description) description.textContent = current[1];
+
+  if (quickCards) quickCards.hidden = state.view !== 'feed';
+
+  if (filters) {
+    filters.hidden = ['my-downloads', 'my-communities', 'admin-communities'].includes(state.view);
+  }
+
+  if (search) {
+    search.placeholder =
+      state.view === 'my-files' ? 'Buscar nos meus arquivos' : 'Buscar materiais e conteúdos';
+  }
+
+  const list = $('feed-list');
+  if (list) list.dataset.view = state.view;
+}
+
+function renderEmpty(message, icon) {
+  return `
+    <div class="view-empty">
+      <div class="view-empty-icon">${icon}</div>
+      <strong>${escapeHtml(message)}</strong>
+    </div>`;
+}
+
 function renderFeed() {
   const list = $('feed-list');
-  const items = state.materials;
-  if (!items.length) {
-    list.innerHTML = '<div class="empty">Nenhum material encontrado. Seja o primeiro a compartilhar!</div>';
+  const items = state.materials || [];
+
+  if (state.view === 'my-downloads') {
+    if (!items.length) {
+      list.innerHTML = renderEmpty('Você ainda não baixou nenhum material.', '↓');
+      return;
+    }
+
+    list.innerHTML = items
+      .map(
+        (m) => `
+      <article class="download-card">
+        <div class="download-card-icon">↓</div>
+        <div class="download-card-content">
+          <span class="view-kicker">Material baixado</span>
+          <h3>${escapeHtml(m.title)}</h3>
+          <div class="view-meta">
+            ${escapeHtml(m.category || 'Material')}
+            · Baixado em ${formatDate(m.downloadedAt)}
+          </div>
+          <div class="view-meta">Enviado por ${escapeHtml(m.author || 'Usuário')}</div>
+        </div>
+        <button class="btn p sm" data-act="download" data-id="${m.id}">Baixar novamente</button>
+      </article>
+    `,
+      )
+      .join('');
     return;
   }
+
+  if (!items.length) {
+    list.innerHTML = renderEmpty(
+      state.view === 'my-files' ? 'Sua biblioteca ainda está vazia.' : 'Nenhum material encontrado.',
+      '▤',
+    );
+    return;
+  }
+
   list.innerHTML = items
     .map(
       (m) => `
-    <article class="mcard">
-      <div>
-        <span class="tag">${escapeHtml(m.category)}</span>
-        <span class="tag" style="background:var(--line);color:var(--fg);margin-left:6px">${escapeHtml(m.area || 'Outros')}</span>
+    <article class="library-card">
+      <div class="library-file-icon">▤</div>
+      <div class="library-card-content">
+        <div class="library-tags">
+          <span class="tag">${escapeHtml(m.category || 'Material')}</span>
+          <span class="library-area">${escapeHtml(m.area || 'Outros')}</span>
+        </div>
         <h3>${escapeHtml(m.title)}</h3>
-        <div class="meta">${escapeHtml([m.area, m.discipline].filter(Boolean).join(' · '))} · por ${escapeHtml(m.author)} · ${formatDate(m.createdAt)}</div>
+        <div class="view-meta">
+          ${escapeHtml(m.discipline || m.area || 'Material de estudo')}
+          · ${formatDate(m.createdAt)}
+        </div>
+        ${m.description ? `<p class="library-description">${escapeHtml(m.description)}</p>` : ''}
+        <div class="library-actions">
+          <span class="view-meta">${m.downloads || 0} downloads</span>
+          <button class="btn p sm" data-act="download" data-id="${m.id}">Baixar</button>
+          ${m.mine ? `<button class="lnk" data-act="delete" data-id="${m.id}">Excluir</button>` : ''}
+        </div>
       </div>
-      <div></div>
-      ${m.description ? `<p class="desc">${escapeHtml(m.description)}</p>` : ''}
-      <div class="acts">
-        <span class="stat">${ICON_DOWNLOAD} ${m.downloads} downloads</span>
-        <button class="btn p sm" data-act="download" data-id="${m.id}">Baixar</button>
-        ${m.mine ? `<button class="lnk" data-act="delete" data-id="${m.id}">Excluir</button>` : ''}
-      </div>
-    </article>`,
+    </article>
+  `,
     )
     .join('');
 }
-
 function renderActivities(items) {
   const box = $('activities');
   if (!items?.length) {
@@ -206,35 +290,54 @@ async function loadMyDownloads() {
   }
 }
 
-async function loadCommunities(joinedOnly) {
+async function loadCommunities(joinedOnly, mineOnly = false) {
   try {
-    const items = await api.communities.list({ joined: joinedOnly ? '1' : undefined });
+    const items = await api.communities.list({
+      joined: joinedOnly ? '1' : undefined,
+    });
+
+    const filteredItems = mineOnly ? items.filter((c) => c.mine) : items;
+
     const list = $('feed-list');
-    if (!items.length) {
-      list.innerHTML = '<div class="empty">Nenhuma comunidade encontrada.</div>';
+
+    if (!filteredItems.length) {
+      list.innerHTML = renderEmpty(
+        mineOnly
+          ? 'Você ainda não administra nenhuma comunidade.'
+          : 'Você ainda não participa de nenhuma comunidade.',
+        mineOnly ? '⚙' : '◎',
+      );
       return;
     }
-    list.innerHTML = items
+
+    list.innerHTML = filteredItems
       .map(
         (c) => `
-      <article class="mcard">
-        <div>
-          <h3>${escapeHtml(c.name)}</h3>
-          <div class="meta">${c.members} membros ${c.joined ? '· você participa' : ''} ${c.mine ? '· você administra' : ''}</div>
+      <article class="community-card ${mineOnly ? 'community-card-admin' : 'community-card-member'}">
+        <div class="community-card-top">
+          <span class="community-symbol">${mineOnly ? '⚙' : '◎'}</span>
+          <span class="community-role">
+            ${mineOnly ? 'Sua administração' : 'Comunidade participante'}
+          </span>
         </div>
-        <div></div>
-        <p class="desc">${escapeHtml(c.description || '')}</p>
-        <div class="acts">
-          <a class="btn p sm" href="plataforma.html">Abrir na plataforma</a>
+        <h3>${escapeHtml(c.name)}</h3>
+        <p class="community-description">
+          ${escapeHtml(c.description || 'Uma comunidade para compartilhar conhecimento.')}
+        </p>
+        <div class="community-card-bottom">
+          <span class="view-meta">${c.members} participantes</span>
+          <a class="btn p sm" href="plataforma.html">
+            ${mineOnly ? 'Acessar gestão' : 'Abrir comunidade'}
+          </a>
         </div>
-      </article>`,
+      </article>
+    `,
       )
       .join('');
   } catch (err) {
     handleError(err, 'Erro ao carregar comunidades.');
   }
 }
-
 async function downloadMaterial(id) {
   try {
     const item = state.materials.find((m) => m.id === id);
@@ -308,6 +411,7 @@ document.addEventListener('click', (e) => {
     const key = nav.dataset.nav;
     document.querySelectorAll('.side-nav a').forEach((a) => a.classList.remove('active'));
     nav.classList.add('active');
+    renderViewHeader();
     if (key === 'feed') {
       state.view = 'feed';
       loadMaterials();
@@ -322,34 +426,16 @@ document.addEventListener('click', (e) => {
       loadCommunities(true);
     } else if (key === 'admin-communities') {
       state.view = 'admin-communities';
-      loadCommunities(false).then(() => {
-        /* filter owned client-side if needed */
-      });
-      api.communities.list({}).then((items) => {
-        const owned = items.filter((c) => c.mine);
-        const list = $('feed-list');
-        if (!owned.length) {
-          list.innerHTML = '<div class="empty">Você ainda não administra nenhuma comunidade.</div>';
-          return;
-        }
-        list.innerHTML = owned
-          .map(
-            (c) => `
-          <article class="mcard">
-            <div><h3>${escapeHtml(c.name)}</h3><div class="meta">${c.members} membros · você administra</div></div>
-            <div></div>
-            <p class="desc">${escapeHtml(c.description || '')}</p>
-            <div class="acts"><a class="btn p sm" href="plataforma.html">Gerenciar</a></div>
-          </article>`,
-          )
-          .join('');
-      });
+      loadCommunities(false, true);
     } else if (key === 'materials' || key === 'communities') {
       location.href = nav.getAttribute('href');
     } else if (key === 'profile') {
       location.href = 'profile.html';
     } else if (key === 'settings') {
       location.href = 'feedback.html';
+    } else {
+      // Links sem tratamento especial seguem normalmente para a página de destino.
+      location.href = nav.getAttribute('href');
     }
     return;
   }
@@ -383,13 +469,11 @@ document.addEventListener('click', (e) => {
 $('q').addEventListener(
   'input',
   debounce(() => {
-    if (state.view === 'communities' || state.view === 'my-communities') return;
+    if (['communities', 'my-communities', 'admin-communities', 'my-downloads'].includes(state.view)) return;
     loadMaterials();
   }, 250),
 );
 $('cat').addEventListener('change', () => loadMaterials());
 $('area')?.addEventListener('change', () => loadMaterials());
-$('area')?.addEventListener('change', () => loadMaterials());
-
 
 boot();

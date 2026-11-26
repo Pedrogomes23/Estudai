@@ -1,9 +1,8 @@
 /**
  * Extração de texto de arquivos para a Klyra (PDF / TXT / MD).
  */
-import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
-import { notFound, forbidden, badRequest } from '../../lib/errors.js';
+import { notFound, badRequest } from '../../lib/errors.js';
 
 function getSupabase() {
   const url = process.env.SUPABASE_URL;
@@ -20,9 +19,7 @@ async function extractPdf(buffer) {
   } catch (err) {
     // fallback se o pacote não estiver instalado
     if (err?.code === 'ERR_MODULE_NOT_FOUND') {
-      throw new Error(
-        'Leitura de PDF não disponível no servidor. Instale pdf-parse ou envie TXT/MD.',
-      );
+      throw new Error('Leitura de PDF não disponível no servidor. Instale pdf-parse ou envie TXT/MD.');
     }
     throw new Error('Não foi possível ler este PDF.');
   }
@@ -36,12 +33,7 @@ export async function extractFileText(file) {
   const name = (file.originalname || '').toLowerCase();
   const mime = file.mimetype || '';
 
-  if (
-    name.endsWith('.txt') ||
-    name.endsWith('.md') ||
-    name.endsWith('.csv') ||
-    mime.startsWith('text/')
-  ) {
+  if (name.endsWith('.txt') || name.endsWith('.md') || name.endsWith('.csv') || mime.startsWith('text/')) {
     return file.buffer.toString('utf8').trim();
   }
 

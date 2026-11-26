@@ -138,3 +138,206 @@ body.sidebar-open{overflow:hidden}
   stroke-linejoin: round;
   flex-shrink: 0;
 }
+/* ===== Abas pessoais: biblioteca, downloads e comunidades ===== */
+
+[hidden] { display: none !important; }
+
+.feed-list[data-view="my-files"],
+.feed-list[data-view="my-downloads"],
+.feed-list[data-view="my-communities"],
+.feed-list[data-view="admin-communities"] {
+  gap: 14px;
+}
+
+.library-card,
+.download-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  padding: 18px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+
+.library-file-icon,
+.download-card-icon {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  background: rgba(132,121,220,.16);
+  color: var(--yel);
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.download-card-icon {
+  background: rgba(255,210,80,.12);
+}
+
+.library-card-content,
+.download-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.library-card h3,
+.download-card h3,
+.community-card h3 {
+  margin: 5px 0;
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+
+.library-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.library-area,
+.view-kicker {
+  color: var(--mut);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.view-meta {
+  color: var(--mut);
+  font-size: 12px;
+}
+
+.library-description {
+  margin: 8px 0;
+  color: var(--fg);
+  font-size: 13px;
+}
+
+.library-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.library-actions .view-meta {
+  margin-right: auto;
+}
+
+.download-card {
+  align-items: center;
+}
+
+.download-card-content {
+  min-width: 0;
+}
+
+.community-card {
+  padding: 19px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  transition: border-color .15s, transform .15s;
+}
+
+.community-card:hover {
+  border-color: var(--pur);
+  transform: translateY(-2px);
+}
+
+.community-card-admin {
+  border-left: 3px solid var(--yel);
+}
+
+.community-card-member {
+  border-left: 3px solid var(--pur);
+}
+
+.community-card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.community-symbol {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: rgba(132,121,220,.16);
+  color: var(--yel);
+  font-size: 20px;
+}
+
+.community-role {
+  color: var(--mut);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.community-description {
+  color: var(--mut);
+  font-size: 14px;
+  margin: 8px 0 16px;
+}
+
+.community-card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.view-empty {
+  padding: 38px 20px;
+  text-align: center;
+  background: var(--card);
+  border: 1px dashed var(--line);
+  border-radius: 16px;
+  color: var(--mut);
+}
+
+.view-empty-icon {
+  margin-bottom: 10px;
+  color: var(--yel);
+  font-size: 30px;
+}
+
+.view-empty strong {
+  display: block;
+  font-size: 14px;
+}
+
+@media (max-width: 520px) {
+  .library-card,
+  .download-card {
+    align-items: flex-start;
+    padding: 14px;
+    gap: 10px;
+  }
+
+  .download-card {
+    flex-wrap: wrap;
+  }
+
+  .download-card > .btn {
+    margin-left: 54px;
+  }
+
+  .library-file-icon,
+  .download-card-icon {
+    width: 38px;
+    height: 38px;
+    flex-basis: 38px;
+  }
+}

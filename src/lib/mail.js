@@ -12,7 +12,11 @@ export function createMailer(config) {
   if (!enabled) {
     return {
       enabled: false,
-      async sendPasswordReset() {
+      async sendEmailVerification() {
+        const err = new Error('O envio de e-mail não está configurado.');
+        err.code = 'MAIL_NOT_CONFIGURED';
+        throw err;
+      },      async sendPasswordReset() {
         const err = new Error(
           'O envio de e-mail não está configurado. Defina SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS e MAIL_FROM nas variáveis de ambiente.',
         );
@@ -32,6 +36,54 @@ export function createMailer(config) {
   return {
     enabled: true,
 
+    async sendEmailVerification({ to, name, verificationUrl }) {
+      const safeName = escapeHtml(name || 'estudante');
+      const safeUrl = escapeHtml(verificationUrl);
+
+      const subject = 'Confirme seu e-mail | Estudaí';
+
+      const text = [
+        `Olá, ${name || 'estudante'}!`,
+        '',
+        'Obrigado por criar sua conta no Estudaí.',
+        'Para ativar sua conta, confirme seu endereço de e-mail pelo link abaixo:',
+        '',
+        verificationUrl,
+        '',
+        'Este link é válido por 24 horas e pode ser utilizado apenas uma vez.',
+        '',
+        'Se você não criou esta conta, ignore esta mensagem.',
+        '',
+        'Equipe Estudaí',
+      ].join('\n');
+
+      const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:32px 16px;background:#0a1230;font-family:Arial,sans-serif;color:#f1f3fa;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+    <tr><td align="center">
+      <table role="presentation" width="100%" style="max-width:520px;background:#111c42;border:1px solid #26356a;border-radius:16px;padding:32px 28px;">
+        <tr><td>
+          <h1 style="color:#fff;">Confirme seu e-mail</h1>
+          <p style="color:#dfe3f2;line-height:1.6;">Olá, <strong>${safeName}</strong>!</p>
+          <p style="color:#dfe3f2;line-height:1.6;">Obrigado por criar sua conta no Estudaí. Confirme seu endereço para ativá-la.</p>
+          <p style="text-align:center;margin:28px 0;">
+            <a href="${safeUrl}" style="display:inline-block;background:#fbb817;color:#10224f;font-weight:700;text-decoration:none;padding:14px 28px;border-radius:999px;">Confirmar meu e-mail</a>
+          </p>
+          <p style="color:#a9b3d1;font-size:13px;line-height:1.5;">Este link expira em 24 horas e só pode ser usado uma vez.</p>
+          <p style="color:#a9b3d1;font-size:13px;line-height:1.5;">Se o botão não funcionar, copie este endereço para o navegador:<br><a href="${safeUrl}" style="color:#8479dc;word-break:break-all;">${safeUrl}</a></p>
+          <p style="color:#a9b3d1;font-size:13px;">Se você não criou esta conta, ignore esta mensagem.</p>
+          <p style="color:#a9b3d1;font-size:13px;">Equipe Estudaí</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+      await transporter.sendMail({ from, to, subject, text, html });
+    },
     async sendPasswordReset({ to, name, resetUrl }) {
       const safeName = name || 'estudante';
 

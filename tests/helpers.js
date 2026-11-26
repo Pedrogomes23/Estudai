@@ -29,7 +29,17 @@ async function withAdmin(fn) {
 }
 
 /** Sobe a aplicação real em porta aleatória, com um schema novo no Postgres de teste e uploads em pasta temporária. */
-export async function startTestServer(overrides = {}) {
+export async function startTestServer(overrides = {}, options = {}) {
+  const sentEmails = [];
+  const mailer = options.mailer ?? {
+    enabled: true,
+    async sendEmailVerification(message) {
+      sentEmails.push({ type: 'verification', ...message });
+    },
+    async sendPasswordReset(message) {
+      sentEmails.push({ type: 'password-reset', ...message });
+    },
+  };
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'estudai-test-'));
   const config = loadConfig({
     nodeEnv: 'test',
@@ -46,9 +56,17 @@ export async function startTestServer(overrides = {}) {
     await admin.query('CREATE EXTENSION IF NOT EXISTS citext');
     await admin.query('CREATE EXTENSION IF NOT EXISTS unaccent');
     await admin.query(`CREATE SCHEMA ${schema}`);
+
+    // Keep migrations isolated inside each temporary test schema.
+    await admin.query(`
+      CREATE TABLE ${schema}.schema_migrations (
+        version INTEGER PRIMARY KEY,
+        applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `);
   });
   const db = await openDatabase(TEST_DATABASE_URL, { ssl: false, max: 5, searchPath: `${schema},public` });
-  const app = createApp({ config, db });
+  const app = createApp({ config, db, mailer });
   const server = await new Promise((resolve) => {
     const s = app.listen(0, () => resolve(s));
   });
@@ -58,6 +76,7 @@ export async function startTestServer(overrides = {}) {
     base,
     config,
     db,
+    sentEmails,
     close: async () => {
       await new Promise((resolve) => server.close(resolve));
       await db.close();
@@ -105,6 +124,7 @@ export async function signedInClient(srv, { remember = false } = {}) {
   const client = srv.client();
   const creds = { name: `Aluno ${n}`, email: `aluno${n}@exemplo.com`, password: 'senha-segura-123' };
   await client.post('/api/auth/register', creds);
+  await srv.db.run('UPDATE users SET email_verified_at = now() WHERE email = $1', [creds.email]);
   await client.post('/api/auth/login', { email: creds.email, password: creds.password, remember });
   return { client, creds };
 }

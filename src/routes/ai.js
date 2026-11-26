@@ -1,4 +1,12 @@
-import { Router } from 'express';
+﻿import { Router } from 'express';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import {
+  beginMessageRequest,
+  completeMessageRequest,
+  markMessageRequestRetryable,
+  markMessageRequestUncertain,
+} from '../services/ai/message-idempotency.js';
+
 import multer from 'multer';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
@@ -15,6 +23,55 @@ import {
 } from '../services/ai/klyra.js';
 import { GEMINI_DEFAULT_MODEL } from '../services/ai/provider.js';
 import { extractFileText, extractMaterialText } from '../services/ai/extract.js';
+
+const PENDING_DOCUMENT_TTL_MINUTES = 15;
+
+const hashDocumentToken = (token) => createHash('sha256').update(token).digest('hex');
+
+async function storePendingDocument(db, userId, name, content) {
+  const token = randomBytes(32).toString('hex');
+  const tokenHash = hashDocumentToken(token);
+
+  await db.run('DELETE FROM ai_pending_documents WHERE user_id = $1 AND expires_at <= now()', [userId]);
+
+  await db.run(
+    `INSERT INTO ai_pending_documents
+      (token_hash, user_id, name, content, expires_at)
+     VALUES ($1, $2, $3, $4, now() + interval '${PENDING_DOCUMENT_TTL_MINUTES} minutes')`,
+    [tokenHash, userId, String(name || 'documento').slice(0, 200), String(content).slice(0, 60000)],
+  );
+
+  return token;
+}
+
+async function claimPendingDocument(db, userId, token) {
+  if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token)) return null;
+
+  return db.get(
+    `UPDATE ai_pending_documents
+       SET claimed_at = now()
+     WHERE token_hash = $1
+       AND user_id = $2
+       AND expires_at > now()
+       AND (claimed_at IS NULL OR claimed_at < now() - interval '4 minutes')
+     RETURNING name, content`,
+    [hashDocumentToken(token), userId],
+  );
+}
+
+async function releasePendingDocument(db, userId, token) {
+  await db.run('UPDATE ai_pending_documents SET claimed_at = NULL WHERE token_hash = $1 AND user_id = $2', [
+    hashDocumentToken(token),
+    userId,
+  ]);
+}
+
+async function consumePendingDocument(db, userId, token) {
+  await db.run('DELETE FROM ai_pending_documents WHERE token_hash = $1 AND user_id = $2', [
+    hashDocumentToken(token),
+    userId,
+  ]);
+}
 
 const toIso = (date) => new Date(date).toISOString().replace(/\.\d{3}Z$/, 'Z');
 
@@ -42,8 +99,11 @@ const sendSchema = z.object({
     )
     .optional()
     .default(''),
-  attachmentName: z.string().trim().max(200).optional(),
-  attachmentText: z.string().max(60000).optional(),
+  attachmentToken: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/)
+    .optional(),
+  requestId: z.string().uuid().optional(),
 });
 
 const createSchema = z.object({
@@ -96,7 +156,7 @@ export function aiRouter({ db, config }) {
     }
 
     const conversation = await getConversation(db, req.user.id, id);
-    const messages = await listMessages(db, req.user.id, id);
+    const messages = await listMessages(db, req.user.id, id, true);
 
     res.json({
       item: toConversationApi(conversation),
@@ -121,40 +181,177 @@ export function aiRouter({ db, config }) {
       });
     }
 
-    const { content, attachmentName, attachmentText } = parse(sendSchema, req.body);
+    const { content, attachmentToken, requestId: suppliedRequestId } = parse(sendSchema, req.body);
+
+    const requestId = suppliedRequestId || randomUUID();
+    const payloadHash = createHash('sha256')
+      .update(
+        JSON.stringify({
+          content,
+          attachmentToken: attachmentToken || null,
+        }),
+      )
+      .digest('hex');
+
+    let requestStarted = false;
+    let claimedDocument = null;
 
     try {
+      const requestState = await beginMessageRequest(db, {
+        userId: req.user.id,
+        requestId,
+        conversationId: id,
+        payloadHash,
+      });
+
+      requestStarted = true;
+
+      if (requestState.action === 'conflict') {
+        return res.status(409).json({
+          error: {
+            code: 'IDEMPOTENCY_CONFLICT',
+            message: 'Este identificador já foi utilizado com outra mensagem ou conversa.',
+          },
+        });
+      }
+
+      if (requestState.action === 'completed') {
+        return res.status(201).json(requestState.response);
+      }
+
+      if (requestState.action === 'processing') {
+        return res.status(202).json({
+          status: 'processing',
+          requestId,
+        });
+      }
+
+      if (requestState.action === 'uncertain') {
+        return res.status(409).json({
+          error: {
+            code: 'REQUEST_RESULT_UNCERTAIN',
+            message:
+              'Não foi possível confirmar o resultado anterior. Atualize a conversa antes de enviar uma nova mensagem.',
+          },
+        });
+      }
+
+      if (attachmentToken) {
+        claimedDocument = await claimPendingDocument(db, req.user.id, attachmentToken);
+
+        if (!claimedDocument) {
+          await markMessageRequestRetryable(db, {
+            userId: req.user.id,
+            requestId,
+            errorCode: 'ATTACHMENT_UNAVAILABLE',
+          });
+
+          return res.status(410).json({
+            error: {
+              code: 'ATTACHMENT_EXPIRED',
+              message: 'O anexo expirou ou não está mais disponível. Envie o arquivo novamente.',
+            },
+          });
+        }
+      }
+
       const result = await sendMessage(db, {
         userId: req.user.id,
         conversationId: id,
         content,
-        attachmentName,
-        attachmentText,
+        attachmentName: claimedDocument?.name,
+        attachmentText: claimedDocument?.content,
         apiKey: config.geminiApiKey,
         model: config.geminiModel || GEMINI_DEFAULT_MODEL,
+        requestId,
+        existingUserMessageId: requestState.action === 'retry' ? requestState.userMessageId : undefined,
       });
 
-      res.status(201).json({
+      const response = {
         userMessage: toMessageApi(result.userMessage),
         assistantMessage: toMessageApi(result.assistantMessage),
         remainingToday: result.remainingToday,
         title: result.title || undefined,
+      };
+
+      await completeMessageRequest(db, {
+        userId: req.user.id,
+        requestId,
+        response,
       });
+
+      if (attachmentToken) {
+        await consumePendingDocument(db, req.user.id, attachmentToken).catch(() => {});
+      }
+
+      return res.status(201).json(response);
     } catch (err) {
+      const safeToRetry =
+        err.code === 'AI_QUOTA_UNAVAILABLE' ||
+        (err.providerResponse === true &&
+          Number.isInteger(err.status) &&
+          err.status >= 400 &&
+          err.status < 600 &&
+          err.status !== 429) ||
+        err.status === 400 ||
+        err.status === 403 ||
+        err.status === 404;
+
+      if (attachmentToken && claimedDocument) {
+        const settleAttachment = safeToRetry ? releasePendingDocument : consumePendingDocument;
+        await settleAttachment(db, req.user.id, attachmentToken).catch(() => {});
+      }
+
+      if (requestStarted) {
+        const safeToRetry =
+          err.code === 'AI_QUOTA_UNAVAILABLE' ||
+          (err.providerResponse === true &&
+            Number.isInteger(err.status) &&
+            err.status >= 400 &&
+            err.status < 600 &&
+            err.status !== 429) ||
+          err.status === 400 ||
+          err.status === 403 ||
+          err.status === 404;
+
+        const updateRequest = safeToRetry ? markMessageRequestRetryable : markMessageRequestUncertain;
+
+        await updateRequest(db, {
+          userId: req.user.id,
+          requestId,
+          errorCode: err.code || 'REQUEST_FAILED',
+        }).catch(() => {});
+      }
+
       if (err.code === 'RATE_LIMITED' || err.status === 429) {
+        const retryAfterSeconds = Number.isFinite(err.retryAfterMs)
+          ? Math.ceil(err.retryAfterMs / 1000)
+          : null;
+
+        if (retryAfterSeconds !== null) {
+          res.set('Retry-After', String(retryAfterSeconds));
+        }
+
         return res.status(429).json({
           error: {
             code: 'RATE_LIMITED',
             message:
-              'A Klyra está recebendo muitas solicitações no momento. Tente novamente em instantes.',
+              'A Klyra atingiu temporariamente o limite de solicitações da IA. Aguarde um pouco e tente novamente.',
+            retryAfterSeconds,
           },
         });
       }
-      if (
-        err.code === 'AI_PROVIDER_ERROR' ||
-        err.code === 'AI_EMPTY_RESPONSE' ||
-        err.code === 'AI_TIMEOUT'
-      ) {
+
+      if (err.code === 'AI_QUOTA_UNAVAILABLE') {
+        return res.status(503).json({
+          error: {
+            code: 'AI_QUOTA_UNAVAILABLE',
+            message: 'A Klyra está temporariamente indisponível. Tente novamente em instantes.',
+          },
+        });
+      }
+
+      if (err.code === 'AI_PROVIDER_ERROR' || err.code === 'AI_EMPTY_RESPONSE' || err.code === 'AI_TIMEOUT') {
         return res.status(err.status === 504 ? 504 : 502).json({
           error: {
             code: err.code,
@@ -162,6 +359,7 @@ export function aiRouter({ db, config }) {
           },
         });
       }
+
       throw err;
     }
   });
@@ -179,12 +377,28 @@ export function aiRouter({ db, config }) {
   });
 
   // ---- Extração de texto de arquivos (PDF/TXT) para a Klyra ----
+  const extractLimiter = config.rateLimit.enabled
+    ? rateLimit({
+        windowMs: 60 * 1000,
+        limit: 6,
+        standardHeaders: 'draft-7',
+        legacyHeaders: false,
+        keyGenerator: (req) => `klyra-extract-user-${req.user.id}`,
+        message: {
+          error: {
+            code: 'RATE_LIMITED',
+            message: 'Você realizou muitas extrações. Aguarde um minuto e tente novamente.',
+          },
+        },
+      })
+    : (_req, _res, next) => next();
+
   const extractUpload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 8 * 1024 * 1024, files: 1 },
   });
 
-  router.post('/extract-text', extractUpload.single('file'), async (req, res) => {
+  router.post('/extract-text', extractLimiter, extractUpload.single('file'), async (req, res) => {
     if (!req.file) {
       return res.status(400).json({
         error: { code: 'VALIDATION_ERROR', message: 'Envie um arquivo.' },
@@ -200,7 +414,8 @@ export function aiRouter({ db, config }) {
           },
         });
       }
-      res.json({ text: text.slice(0, 60000), fileName: req.file.originalname });
+      const token = await storePendingDocument(db, req.user.id, req.file.originalname, text);
+      res.json({ token, fileName: req.file.originalname });
     } catch (err) {
       res.status(422).json({
         error: {
@@ -211,7 +426,7 @@ export function aiRouter({ db, config }) {
     }
   });
 
-  router.post('/extract-material', async (req, res) => {
+  router.post('/extract-material', extractLimiter, async (req, res) => {
     const materialId = Number(req.body?.materialId);
     if (!Number.isInteger(materialId) || materialId < 1) {
       return res.status(400).json({
@@ -228,7 +443,8 @@ export function aiRouter({ db, config }) {
           },
         });
       }
-      res.json({ text: text.slice(0, 60000) });
+      const token = await storePendingDocument(db, req.user.id, `Material ${materialId}`, text);
+      res.json({ token, fileName: `Material ${materialId}` });
     } catch (err) {
       const status = err.status || 500;
       res.status(status).json({

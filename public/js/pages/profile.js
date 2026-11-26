@@ -1,6 +1,6 @@
 import { ApiError, api } from '../lib/api.js';
 import { $, escapeHtml, ICON_DOWNLOAD } from '../lib/dom.js';
-import { initSidebar, setSidebarUser } from '../lib/sidebar.js';
+import { initSidebar } from '../lib/sidebar.js';
 
 function initials(name) {
   return String(name || '?')
@@ -28,17 +28,13 @@ async function boot() {
   initSidebar({ active: 'profile' });
 
   try {
-    const [profile, materials] = await Promise.all([
-      api.profile.me(),
-      api.materials.list({ mine: '1' }),
-    ]);
+    const [profile, materials] = await Promise.all([api.profile.me(), api.materials.list({ mine: '1' })]);
     const u = profile.user;
     const s = profile.stats;
 
     $('prof-name').textContent = u.name;
     $('prof-email').textContent = u.email;
     $('prof-bio').textContent = u.bio || 'Nenhuma biografia ainda.';
-    $('prof-av').textContent = initials(u.name);
     $('side-name').textContent = u.name;
     $('side-email').textContent = u.email;
     $('side-av').textContent = initials(u.name);
@@ -88,7 +84,6 @@ $('edit-form').addEventListener('submit', async (e) => {
     });
     $('prof-name').textContent = user.name;
     $('prof-bio').textContent = user.bio || 'Nenhuma biografia ainda.';
-    $('prof-av').textContent = initials(user.name);
     $('side-name').textContent = user.name;
     $('side-av').textContent = initials(user.name);
     say('Perfil atualizado.');
@@ -114,6 +109,5 @@ document.addEventListener('click', (e) => {
       .catch((err) => handleError(err, 'Não foi possível excluir.'));
   }
 });
-
 
 boot();

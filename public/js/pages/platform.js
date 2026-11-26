@@ -1,4 +1,5 @@
 import { ApiError, api } from '../lib/api.js';
+import { confirmDialog } from '../lib/confirm-dialog.js';
 // Garante autenticação: visitantes vão para o login
 // (a mesma resposta é reaproveitada no start(), em vez de pedir /me duas vezes)
 const mePromise = api.auth.me();
@@ -9,8 +10,8 @@ import { initSidebar, setSidebarUser } from '../lib/sidebar.js';
 
 // Importando o Supabase Client para o upload de arquivos do chat
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-const supabaseUrl = 'https://abozwskrdzmxljnjlaai.supabase.co'; 
-const supabaseKey = 'sb_publishable_e3uyPCYDct4Xd_Qc7szWsw_yC73UEQq'; 
+const supabaseUrl = 'https://abozwskrdzmxljnjlaai.supabase.co';
+const supabaseKey = 'sb_publishable_e3uyPCYDct4Xd_Qc7szWsw_yC73UEQq';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const state = { me: null, materials: [], totalMaterials: 0, communities: [], room: null };
@@ -21,7 +22,6 @@ let setTab;
 const formatSize = (n) =>
   n < 1048576 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1048576).toFixed(1)} MB`;
 const MAX_UPLOAD = 25 * 1024 * 1024;
-const MAX_CHAT_UPLOAD = 50 * 1024 * 1024; // 50MB para o chat
 
 let toastTimer;
 function say(text) {
@@ -84,7 +84,7 @@ function renderMaterials() {
             `<small>${escapeHtml(theme)}<br>Enviado por ${escapeHtml(x.author)} · ${formatSize(x.fileSize)}</small>` +
             (x.description ? `<p class="d">${escapeHtml(x.description)}</p>` : '') +
             `<div class="foot"><span>${ICON_DOWNLOAD} ${x.downloads} downloads</span><span class="acts">` +
-            ((x.canDelete || x.mine || state.me?.isAdmin)
+            (x.canDelete || x.mine || state.me?.isAdmin
               ? `<button class="lnk" data-act="delete-material" data-id="${x.id}">Excluir</button>`
               : '') +
             `<button class="btn p sm" data-act="download" data-id="${x.id}">Baixar</button></span></div></div>`
@@ -166,7 +166,14 @@ async function downloadMaterial(id) {
 }
 
 async function deleteMaterial(id) {
-  if (!confirm('Excluir esta apostila? Essa ação não pode ser desfeita.')) return;
+  if (
+    !(await confirmDialog({
+      title: 'Excluir apostila?',
+      message: 'Tem certeza de que deseja excluir esta apostila? Essa ação não poderá ser desfeita.',
+      confirmText: 'Excluir',
+    }))
+  )
+    return;
   try {
     await api.materials.remove(id);
     await loadMaterials();
@@ -308,7 +315,9 @@ function route() {
 
 /** Marca na barra lateral qual dos dois links (materiais / comunidades) está ativo. */
 function syncSidebar(active) {
-  for (const link of document.querySelectorAll('#sidebar a[data-nav="materials"], #sidebar a[data-nav="communities"]')) {
+  for (const link of document.querySelectorAll(
+    '#sidebar a[data-nav="materials"], #sidebar a[data-nav="communities"]',
+  )) {
     link.classList.toggle('active', link.dataset.nav === active);
   }
 }
@@ -383,7 +392,8 @@ async function showRoom(id) {
 /** Busca mensagens (a cada ciclo) e participantes (a cada 3 ciclos). */
 async function refreshRoom(first) {
   const room = state.room;
-  if (!room) return;
+  if (!room || room.refreshing) return;
+  room.refreshing = true;
   try {
     const wantMembers = first || room.ticks++ % 3 === 0;
     const [messages, members] = await Promise.all([
@@ -399,6 +409,8 @@ async function refreshRoom(first) {
       return closeRoom();
     }
     if (first) handleError(err, 'Não foi possível carregar o chat.');
+  } finally {
+    room.refreshing = false;
   }
 }
 
@@ -410,7 +422,7 @@ function renderMessages(messages, forceScroll) {
 
   const box = $('room-msgs');
   const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
-  
+
   box.innerHTML = messages.length
     ? messages
         .map((m) => {
@@ -426,7 +438,8 @@ function renderMessages(messages, forceScroll) {
             }
           }
 
-          return `<div class="bubble${m.mine ? ' me' : ''}">` +
+          return (
+            `<div class="bubble${m.mine ? ' me' : ''}">` +
             `<div class="who"><b>${m.mine ? 'Você' : escapeHtml(m.author.name)}</b>` +
             `<time datetime="${m.createdAt}">${formatTime(m.createdAt)}</time>` +
             (m.canDelete
@@ -435,11 +448,12 @@ function renderMessages(messages, forceScroll) {
             `</div>` +
             `<p class="txt">${escapeHtml(m.body)}</p>` +
             attachmentHtml +
-            `</div>`;
+            `</div>`
+          );
         })
         .join('')
     : '<p class="empty">Ninguém escreveu ainda. Comece a conversa!</p>';
-    
+
   if (forceScroll || nearBottom) box.scrollTop = box.scrollHeight;
 }
 
@@ -477,7 +491,6 @@ async function sendMessage(event) {
   input.focus();
 }
 
-
 /* ---------- LÓGICA DE UPLOAD DO CHAT ---------- */
 async function uploadAttachment(event) {
   const file = event.target.files[0];
@@ -498,20 +511,12 @@ async function uploadAttachment(event) {
 
   try {
     // 1. Solicita autorização temporária ao backend.
-    const upload = await api.communities.createAttachmentUpload(
-      state.room.id,
-      file
-    );
+    const upload = await api.communities.createAttachmentUpload(state.room.id, file);
 
     // 2. Envia o arquivo usando a autorização recebida.
     const { error } = await supabase.storage
       .from('chat-attachments')
-      .uploadToSignedUrl(
-        upload.path,
-        upload.token,
-        file,
-        { contentType: upload.contentType }
-      );
+      .uploadToSignedUrl(upload.path, upload.token, file, { contentType: upload.contentType });
 
     if (error) throw error;
 
@@ -519,16 +524,14 @@ async function uploadAttachment(event) {
     await api.communities.completeAttachmentUpload(state.room.id, {
       path: upload.path,
       body: '',
-      attachmentType: file.type || 'application/octet-stream'
+      attachmentType: file.type || 'application/octet-stream',
     });
 
     state.room.signature = '';
     await refreshRoom(true);
-
   } catch (err) {
     console.error('Erro ao enviar anexo:', err);
-    $('chat-err').textContent =
-      err.message || 'Erro ao enviar o arquivo. Tente novamente.';
+    $('chat-err').textContent = err.message || 'Erro ao enviar o arquivo. Tente novamente.';
   } finally {
     btn.disabled = false;
     btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"></path></svg>`;
@@ -536,51 +539,50 @@ async function uploadAttachment(event) {
   }
 }
 
-
 /* ---------- LÓGICA DO MODAL DE MATERIAIS (OPÇÃO 2) ---------- */
 async function abrirModalMateriais() {
   $('modal-materiais').classList.add('s');
   const lista = $('lista-materiais-chat');
-  lista.innerHTML = '<p style="text-align:center;color:var(--mut);font-size:13px">Carregando materiais...</p>';
-  
+  lista.innerHTML =
+    '<p style="text-align:center;color:var(--mut);font-size:13px">Carregando materiais...</p>';
+
   try {
     const data = await api.materials.list({ sort: 'recent' });
-    
+
     if (data.items.length === 0) {
-      lista.innerHTML = '<p style="text-align:center;color:var(--mut);font-size:13px">Nenhum material encontrado.</p>';
+      lista.innerHTML =
+        '<p style="text-align:center;color:var(--mut);font-size:13px">Nenhum material encontrado.</p>';
       return;
     }
 
-    
-lista.innerHTML = data.items.map(m => `
+    lista.innerHTML = data.items
+      .map(
+        (m) => `
   <button type="button" class="card-material-chat">
     <strong style="color:var(--fg); font-size:14px">${escapeHtml(m.title)}</strong>
     <span style="color:var(--mut); font-size:12px">${escapeHtml(m.category)} · ${escapeHtml(m.author)}</span>
   </button>
-`).join('');
+`,
+      )
+      .join('');
 
-// Registra os cliques sem usar onclick inline
-lista.querySelectorAll('.card-material-chat').forEach((botao, index) => {
-  const material = data.items[index];
+    // Registra os cliques sem usar onclick inline
+    lista.querySelectorAll('.card-material-chat').forEach((botao, index) => {
+      const material = data.items[index];
 
-  botao.addEventListener('click', () => {
-    window.enviarMaterialDoChat(
-      material.id,
-      material.title,
-      material.fileName || 'Arquivo.pdf'
-    );
-  });
-});
-
-
-  } catch (err) {
-    lista.innerHTML = '<p style="text-align:center;color:var(--err);font-size:13px">Erro ao carregar materiais.</p>';
+      botao.addEventListener('click', () => {
+        window.enviarMaterialDoChat(material.id, material.title, material.fileName || 'Arquivo.pdf');
+      });
+    });
+  } catch {
+    lista.innerHTML =
+      '<p style="text-align:center;color:var(--err);font-size:13px">Erro ao carregar materiais.</p>';
   }
 }
 
 // Função chamada pelo botão do material
 
-window.enviarMaterialDoChat = async function(id, titulo, nomeArquivo) {
+window.enviarMaterialDoChat = async function (id, titulo, nomeArquivo) {
   const room = state.room;
 
   if (!room) {
@@ -605,30 +607,17 @@ window.enviarMaterialDoChat = async function(id, titulo, nomeArquivo) {
     }
 
     // 2. Prepara o arquivo.
-    const nomeSeguro = (nomeArquivo || 'material.pdf')
-      .replace(/[^\w.-]/g, '_');
+    const nomeSeguro = (nomeArquivo || 'material.pdf').replace(/[^\w.-]/g, '_');
 
-    const file = new File(
-      [blob],
-      nomeSeguro,
-      { type: blob.type || 'application/octet-stream' }
-    );
+    const file = new File([blob], nomeSeguro, { type: blob.type || 'application/octet-stream' });
 
     // 3. Solicita autorização temporária ao backend.
-    const upload = await api.communities.createAttachmentUpload(
-      room.id,
-      file
-    );
+    const upload = await api.communities.createAttachmentUpload(room.id, file);
 
     // 4. Envia o arquivo usando a autorização recebida.
     const { error } = await supabase.storage
       .from('chat-attachments')
-      .uploadToSignedUrl(
-        upload.path,
-        upload.token,
-        file,
-        { contentType: upload.contentType }
-      );
+      .uploadToSignedUrl(upload.path, upload.token, file, { contentType: upload.contentType });
 
     if (error) throw error;
 
@@ -636,22 +625,19 @@ window.enviarMaterialDoChat = async function(id, titulo, nomeArquivo) {
     await api.communities.completeAttachmentUpload(room.id, {
       path: upload.path,
       body: `Enviou o material: ${titulo}`,
-      attachmentType: file.type
+      attachmentType: file.type,
     });
 
     room.signature = '';
     await refreshRoom(true);
-
   } catch (err) {
     console.error('Erro ao enviar material:', err);
-    $('chat-err').textContent =
-      err.message || 'Não foi possível enviar o material.';
+    $('chat-err').textContent = err.message || 'Não foi possível enviar o material.';
   } finally {
     btn.disabled = false;
     btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"></path></svg>`;
   }
 };
-
 
 async function deleteMessage(messageId) {
   const room = state.room;
@@ -733,7 +719,7 @@ function bindEvents() {
   });
 
   $('f-chat').addEventListener('submit', sendMessage);
-  
+
   // --- NOVA LÓGICA DO BOTÃO DE ANEXO ---
   const btnAttach = $('btn-attach');
   const attachMenu = $('attach-menu');
@@ -766,12 +752,12 @@ function bindEvents() {
 
   // Evento de mudança do arquivo
   fileInput?.addEventListener('change', uploadAttachment);
-  
+
   // Busca no modal de materiais
   $('busca-material-chat')?.addEventListener('input', (e) => {
     const termo = e.target.value.toLowerCase();
     const botoes = document.querySelectorAll('#lista-materiais-chat button');
-    botoes.forEach(btn => {
+    botoes.forEach((btn) => {
       const titulo = btn.querySelector('strong').textContent.toLowerCase();
       btn.style.display = titulo.includes(termo) ? 'flex' : 'none';
     });
@@ -800,7 +786,6 @@ async function start() {
     if (err instanceof ApiError && err.status === 401) return location.replace('login.html');
     return say('Não foi possível conectar ao servidor.');
   }
-  const firstName = (state.me.name || 'estudante').split(' ')[0];
   const created = state.me.createdAt ? new Date(state.me.createdAt).getTime() : 0;
   const isNew = created && Date.now() - created < 30 * 60 * 1000; // conta com menos de 30 min
   setSidebarUser(state.me);

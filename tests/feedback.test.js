@@ -37,7 +37,8 @@ describe('feedback', () => {
   });
 
   it('allowContact é opcional e vale false por padrão', async () => {
-    const { allowContact: _omit, ...rest } = valid;
+    const rest = { ...valid };
+    delete rest.allowContact;
     const res = await a.post('/api/feedback', rest);
     assert.equal(res.status, 201);
     assert.equal(res.data.item.allowContact, false);

@@ -65,6 +65,10 @@ export const api = {
     validateResetToken: (token) =>
       request('GET', `/api/auth/reset-password/validate?token=${encodeURIComponent(token)}`),
     resetPassword: (data) => request('POST', '/api/auth/reset-password', { json: data }),
+    validateEmailVerification: (token) =>
+      request('GET', `/api/auth/verify-email/validate?token=${encodeURIComponent(token)}`),
+    verifyEmail: (token) => request('POST', '/api/auth/verify-email', { json: { token } }),
+    resendVerification: (data) => request('POST', '/api/auth/resend-verification', { json: data }),
   },
   materials: {
     list: (filters) => request('GET', `/api/materials${query(filters)}`),
@@ -86,7 +90,7 @@ export const api = {
     messages: (id) => request('GET', `/api/communities/${id}/messages`).then((r) => r.items),
     send: (id, body) =>
       request('POST', `/api/communities/${id}/messages`, {
-        json: { body }
+        json: { body },
       }).then((r) => r.item),
 
     createAttachmentUpload: (id, file) =>
@@ -94,26 +98,22 @@ export const api = {
         json: {
           fileName: file.name,
           contentType: file.type || 'application/octet-stream',
-          size: file.size
-        }
+          size: file.size,
+        },
       }),
 
     completeAttachmentUpload: (id, data) =>
       request('POST', `/api/communities/${id}/attachments/complete`, {
-        json: data
+        json: data,
       }).then((r) => r.item),
 
-    removeMessage: (id, messageId) =>
-      request('DELETE', `/api/communities/${id}/messages/${messageId}`),
+    removeMessage: (id, messageId) => request('DELETE', `/api/communities/${id}/messages/${messageId}`),
 
-    join: (id) =>
-      request('PUT', `/api/communities/${id}/membership`).then((r) => r.item),
+    join: (id) => request('PUT', `/api/communities/${id}/membership`).then((r) => r.item),
 
-    leave: (id) =>
-      request('DELETE', `/api/communities/${id}/membership`).then((r) => r.item),
+    leave: (id) => request('DELETE', `/api/communities/${id}/membership`).then((r) => r.item),
 
-    remove: (id) =>
-      request('DELETE', `/api/communities/${id}`),
+    remove: (id) => request('DELETE', `/api/communities/${id}`),
   },
   profile: {
     me: () => request('GET', '/api/profile/me'),
@@ -135,8 +135,7 @@ export const api = {
   },
   ai: {
     listConversations: () => request('GET', '/api/ai/conversations'),
-    createConversation: (title) =>
-      request('POST', '/api/ai/conversations', { json: title ? { title } : {} }),
+    createConversation: (title) => request('POST', '/api/ai/conversations', { json: title ? { title } : {} }),
     getConversation: (id) => request('GET', `/api/ai/conversations/${id}`),
     sendMessage: (id, payload) => {
       const body = typeof payload === 'string' ? { content: payload } : payload;

@@ -9,13 +9,17 @@ export function profileRouter({ db }) {
   /** Dados completos da conta autenticada + contadores */
   router.get('/me', async (req, res) => {
     const u = req.user;
-    const [row, materials, downloads, joined, owned] = await Promise.all([
-      db.get('SELECT id, name, email, COALESCE(bio, \'\') AS bio, COALESCE(is_admin, false) AS is_admin, created_at FROM users WHERE id = $1', [u.id]),
-      db.get('SELECT COUNT(*)::int AS n FROM materials WHERE author_id = $1', [u.id]),
-      db.get('SELECT COUNT(*)::int AS n FROM material_downloads WHERE user_id = $1', [u.id]).catch(() => ({ n: 0 })),
-      db.get('SELECT COUNT(*)::int AS n FROM community_members WHERE user_id = $1', [u.id]),
-      db.get('SELECT COUNT(*)::int AS n FROM communities WHERE created_by = $1', [u.id]),
-    ]);
+    const row = await db.get(
+      `SELECT u.id, u.name, u.email, COALESCE(u.bio, '') AS bio,
+              COALESCE(u.is_admin, false) AS is_admin, u.created_at,
+              (SELECT COUNT(*)::int FROM materials WHERE author_id = u.id) AS materials_count,
+              (SELECT COUNT(*)::int FROM material_downloads WHERE user_id = u.id) AS downloads_count,
+              (SELECT COUNT(*)::int FROM community_members WHERE user_id = u.id) AS communities_joined_count,
+              (SELECT COUNT(*)::int FROM communities WHERE created_by = u.id) AS communities_owned_count
+         FROM users u
+        WHERE u.id = $1`,
+      [u.id],
+    );
 
     res.json({
       user: {
@@ -24,15 +28,13 @@ export function profileRouter({ db }) {
         email: row.email,
         bio: row.bio || '',
         isAdmin: Boolean(row.is_admin),
-        createdAt: row.created_at
-          ? new Date(row.created_at).toISOString().replace(/\.\d{3}Z$/, 'Z')
-          : null,
+        createdAt: row.created_at ? new Date(row.created_at).toISOString().replace(/\.\d{3}Z$/, 'Z') : null,
       },
       stats: {
-        materials: materials.n,
-        downloads: downloads.n,
-        communitiesJoined: joined.n,
-        communitiesOwned: owned.n,
+        materials: row.materials_count,
+        downloads: row.downloads_count,
+        communitiesJoined: row.communities_joined_count,
+        communitiesOwned: row.communities_owned_count,
       },
     });
   });
@@ -52,9 +54,10 @@ export function profileRouter({ db }) {
       await db.run('UPDATE users SET bio = $1 WHERE id = $2', [bio, req.user.id]);
     }
 
-    const updated = await db.get('SELECT id, name, email, bio, is_admin, created_at FROM users WHERE id = $1', [
-      req.user.id,
-    ]);
+    const updated = await db.get(
+      'SELECT id, name, email, bio, is_admin, created_at FROM users WHERE id = $1',
+      [req.user.id],
+    );
     res.json({
       user: {
         id: updated.id,

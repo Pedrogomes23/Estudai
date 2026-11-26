@@ -16,3 +16,20 @@ certs/
 *.key
 
 .env
+
+.env
+# Backups e arquivos temporários
+backup-*/
+backups-*/
+*.backup*
+*.dump
+
+# Auditorias e scripts de patch pontuais
+auditoria-*
+aplicar-*.mjs
+corrigir-*.mjs
+patch-*.mjs
+otimizar-*.mjs
+medir-*.mjs
+executar-migracoes-local-*.mjs
+diagnostico-encoding.mjs

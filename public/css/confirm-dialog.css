@@ -1,0 +1,108 @@
+.ed-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(3, 8, 27, .76);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  animation: ed-confirm-fade .18s ease-out;
+}
+
+.ed-confirm-dialog {
+  width: min(100%, 420px);
+  padding: 30px;
+  text-align: center;
+  color: var(--fg, #f1f3fa);
+  background: linear-gradient(145deg, var(--card, #111c42), var(--bar, #0d1838));
+  border: 1px solid var(--line, #26356a);
+  border-radius: 24px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .42);
+  animation: ed-confirm-rise .22s ease-out;
+}
+
+.ed-confirm-icon {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 18px;
+  border: 1px solid rgba(255, 138, 138, .35);
+  border-radius: 18px;
+  color: #ff9b9b;
+  background: rgba(255, 100, 120, .12);
+  font: 800 30px "Baloo 2", Nunito, sans-serif;
+}
+
+.ed-confirm-dialog h2 {
+  margin: 0 0 10px;
+  color: var(--fg, #f1f3fa);
+  font: 800 27px/1.2 "Baloo 2", Nunito, sans-serif;
+}
+
+.ed-confirm-dialog p {
+  margin: 0;
+  color: var(--mut, #a9b3d1);
+  font: 600 15px/1.6 Nunito, sans-serif;
+}
+
+.ed-confirm-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.ed-confirm-actions button {
+  flex: 1;
+  min-height: 46px;
+  padding: 10px 16px;
+  border-radius: 13px;
+  cursor: pointer;
+  font: 800 15px Nunito, sans-serif;
+  transition: transform .16s ease, filter .16s ease;
+}
+
+.ed-confirm-actions button:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.ed-confirm-cancel {
+  color: var(--fg, #f1f3fa);
+  background: var(--panel, #0e1838);
+  border: 1px solid var(--line, #26356a);
+}
+
+.ed-confirm-delete {
+  color: #fff;
+  background: #b94460;
+  border: 1px solid #d65b76;
+}
+
+.ed-confirm-actions button:focus-visible {
+  outline: 3px solid var(--pur, #8479dc);
+  outline-offset: 3px;
+}
+
+@keyframes ed-confirm-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ed-confirm-rise {
+  from { opacity: 0; transform: translateY(10px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 480px) {
+  .ed-confirm-dialog { padding: 25px 20px; border-radius: 20px; }
+  .ed-confirm-dialog h2 { font-size: 24px; }
+  .ed-confirm-actions { flex-direction: column-reverse; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ed-confirm-overlay, .ed-confirm-dialog { animation: none; }
+  .ed-confirm-actions button { transition: none; }
+}

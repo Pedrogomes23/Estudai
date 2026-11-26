@@ -18,7 +18,7 @@ import { notificationsRouter } from './routes/notifications.js';
 import { aiRouter } from './routes/ai.js';
 
 /** Monta a aplicação Express. Recebe config e banco já prontos (facilita testes). */
-export function createApp({ config, db }) {
+export function createApp({ config, db, mailer }) {
   const app = express();
   const sessions = createSessionStore(db, config);
 
@@ -80,7 +80,7 @@ export function createApp({ config, db }) {
     next();
   });
   app.use('/api/health', healthRouter(db));
-  app.use('/api/auth', authRouter({ db, config, sessions }));
+  app.use('/api/auth', authRouter({ db, config, sessions, mailer }));
   app.use('/api/admin', adminRouter({ db }));
   app.use('/api/materials', materialsRouter({ db, config }));
   app.use('/api/communities', communitiesRouter({ db, config }));

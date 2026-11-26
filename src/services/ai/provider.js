@@ -16,6 +16,7 @@ export async function chatWithGemini({
   model = DEFAULT_MODEL,
   messages,
   systemInstruction,
+  maxOutputTokens = 2048,
 }) {
   if (!apiKey) {
     throw new Error('GROQ_API_KEY não configurada.');
@@ -42,7 +43,7 @@ export async function chatWithGemini({
     messages: openaiMessages,
     temperature: 0.7,
     top_p: 0.95,
-    max_tokens: 2048,
+    max_tokens: Math.max(1, Math.min(2048, Math.floor(maxOutputTokens))),
   };
 
   const url = `${GROQ_API_BASE}/chat/completions`;
@@ -89,6 +90,22 @@ export async function chatWithGemini({
     const error = new Error(message);
     error.status = res.status;
     error.code = res.status === 429 ? 'RATE_LIMITED' : 'AI_PROVIDER_ERROR';
+    error.providerResponse = true;
+    if (res.status === 429) {
+      const retryAfter = res.headers.get('retry-after');
+
+      if (retryAfter) {
+        const seconds = Number(retryAfter);
+        const retryDate = Date.parse(retryAfter);
+
+        if (Number.isFinite(seconds) && seconds >= 0) {
+          error.retryAfterMs = Math.ceil(seconds * 1000);
+        } else if (Number.isFinite(retryDate)) {
+          error.retryAfterMs = Math.max(0, retryDate - Date.now());
+        }
+      }
+    }
+
     throw error;
   }
 
@@ -101,7 +118,32 @@ export async function chatWithGemini({
     throw error;
   }
 
-  return { text, model: model || DEFAULT_MODEL };
+  const promptTokens = Number(data?.usage?.prompt_tokens);
+  const completionTokens = Number(data?.usage?.completion_tokens);
+  const totalTokens = Number(data?.usage?.total_tokens);
+  const usage =
+    Number.isFinite(totalTokens) && totalTokens >= 0
+      ? {
+          promptTokens: Number.isFinite(promptTokens) ? promptTokens : null,
+          completionTokens: Number.isFinite(completionTokens) ? completionTokens : null,
+          totalTokens,
+        }
+      : null;
+
+  const rateLimits = {};
+  for (const header of [
+    'x-ratelimit-limit-requests',
+    'x-ratelimit-remaining-requests',
+    'x-ratelimit-reset-requests',
+    'x-ratelimit-limit-tokens',
+    'x-ratelimit-remaining-tokens',
+    'x-ratelimit-reset-tokens',
+  ]) {
+    const value = res.headers.get(header);
+    if (value !== null) rateLimits[header] = value;
+  }
+
+  return { text, model: model || DEFAULT_MODEL, usage, rateLimits };
 }
 
 export const GEMINI_DEFAULT_MODEL = DEFAULT_MODEL;

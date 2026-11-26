@@ -15,6 +15,53 @@ describe('autenticação', () => {
     assert.deepEqual(Object.keys(res.data.user).sort(), ['email', 'id', 'name']);
   });
 
+  it('exige confirmacao de email antes de permitir login', async () => {
+    const rowBefore = await srv.db.get('SELECT email_verified_at FROM users WHERE email = $1', [user.email]);
+    assert.equal(rowBefore.email_verified_at, null);
+
+    const blockedLogin = await srv.client().post('/api/auth/login', {
+      email: user.email,
+      password: user.password,
+    });
+
+    assert.equal(blockedLogin.status, 403);
+    assert.equal(blockedLogin.data.error.code, 'EMAIL_NOT_VERIFIED');
+
+    const verificationEmail = srv.sentEmails.find(
+      (message) => message.type === 'verification' && message.to === user.email,
+    );
+
+    assert.ok(verificationEmail, 'email de confirmacao deve ser enviado');
+
+    const token = new URL(verificationEmail.verificationUrl).searchParams.get('token');
+
+    assert.ok(token, 'o link deve conter o token');
+
+    const validation = await srv
+      .client()
+      .get(`/api/auth/verify-email/validate?token=${encodeURIComponent(token)}`);
+
+    assert.equal(validation.status, 200);
+    assert.deepEqual(validation.data, { valid: true });
+
+    const confirmation = await srv.client().post('/api/auth/verify-email', { token });
+
+    assert.equal(confirmation.status, 200);
+
+    const rowAfter = await srv.db.get('SELECT email_verified_at FROM users WHERE email = $1', [user.email]);
+
+    assert.ok(rowAfter.email_verified_at);
+
+    const validationAfter = await srv
+      .client()
+      .get(`/api/auth/verify-email/validate?token=${encodeURIComponent(token)}`);
+
+    assert.equal(validationAfter.status, 200);
+    assert.deepEqual(validationAfter.data, {
+      valid: false,
+      reason: 'USED',
+    });
+  });
   it('guarda apenas o hash scrypt da senha', async () => {
     const row = await srv.db.get('SELECT password_hash FROM users WHERE email = $1', [user.email]);
     assert.match(row.password_hash, /^scrypt\$/);
@@ -34,14 +81,15 @@ describe('autenticação', () => {
     assert.equal((await c.post('/api/auth/register', { ...user, name: '   ' })).status, 400);
   });
 
-  it('distingue e-mail inexistente de senha incorreta', async () => {
+  it('não revela se o e-mail existe durante o login', async () => {
     const c = srv.client();
     const a = await c.post('/api/auth/login', { email: 'ninguem@exemplo.com', password: 'qualquer-coisa' });
-    assert.equal(a.status, 401);
-    assert.equal(a.data.error.code, 'EMAIL_NOT_FOUND');
     const b = await c.post('/api/auth/login', { email: user.email, password: 'errada-errada' });
+    assert.equal(a.status, 401);
     assert.equal(b.status, 401);
-    assert.equal(b.data.error.code, 'WRONG_PASSWORD');
+    assert.equal(a.data.error.code, 'INVALID_CREDENTIALS');
+    assert.equal(b.data.error.code, 'INVALID_CREDENTIALS');
+    assert.equal(a.data.error.message, b.data.error.message);
   });
 
   it('login cria cookie HttpOnly e /me identifica o usuário', async () => {
@@ -98,5 +146,75 @@ describe('limite de tentativas', () => {
     } finally {
       await srv.close();
     }
+  });
+});
+
+describe('segurança da recuperação de senha', () => {
+  let srv;
+
+  before(async () => {
+    srv = await startTestServer();
+  });
+
+  after(async () => {
+    await srv.close();
+  });
+
+  it('permite consumir um token somente uma vez em requisições simultâneas', async () => {
+    const credentials = {
+      name: 'Usuário Recuperação',
+      email: 'recuperacao@exemplo.com',
+      password: 'senha-original-123',
+    };
+
+    const registration = await srv.client().post('/api/auth/register', credentials);
+    assert.equal(registration.status, 201);
+
+    const { createHash, randomBytes } = await import('node:crypto');
+    const token = randomBytes(32).toString('base64url');
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+
+    await srv.db.run(
+      'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
+      [registration.data.user.id, tokenHash, Date.now() + 60_000],
+    );
+
+    const passwords = ['senha-nova-111', 'senha-nova-222'];
+    const results = await Promise.all(
+      passwords.map((password) => srv.client().post('/api/auth/reset-password', { token, password })),
+    );
+
+    assert.deepEqual(
+      results.map((result) => result.status).sort((a, b) => a - b),
+      [200, 400],
+    );
+
+    const successfulIndex = results.findIndex((result) => result.status === 200);
+    assert.notEqual(successfulIndex, -1);
+
+    const { verifyPassword } = await import('../src/lib/passwords.js');
+    const savedUser = await srv.db.get('SELECT password_hash FROM users WHERE id = $1', [
+      registration.data.user.id,
+    ]);
+
+    assert.equal(await verifyPassword(passwords[successfulIndex], savedUser.password_hash), true);
+
+    const savedToken = await srv.db.get('SELECT used_at FROM password_reset_tokens WHERE token_hash = $1', [
+      tokenHash,
+    ]);
+    assert.ok(savedToken.used_at);
+  });
+
+  it('não revela se existe conta quando o SMTP não está configurado', async () => {
+    const existing = await srv.client().post('/api/auth/forgot-password', {
+      email: 'recuperacao@exemplo.com',
+    });
+    const missing = await srv.client().post('/api/auth/forgot-password', {
+      email: 'nao-existe@exemplo.com',
+    });
+
+    assert.equal(existing.status, 200);
+    assert.equal(missing.status, 200);
+    assert.deepEqual(existing.data, missing.data);
   });
 });

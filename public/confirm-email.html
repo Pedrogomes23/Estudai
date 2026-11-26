@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, follow">
+<title>Confirmar e-mail - Estudaí!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@400;600;700&display=swap">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/password.css">
+</head>
+<body>
+<div class="top">
+  <header>
+    <a class="logo" href="index.html" aria-label="Estudaí - início">Estud<b>aí!</b></a>
+    <nav><a href="login.html">Login</a></nav>
+  </header>
+</div>
+
+<main class="auth-page">
+  <div class="auth-card">
+    <div id="view-loading">
+      <h1>Confirmar e-mail</h1>
+      <span class="ul"></span>
+      <p class="lead">Estamos validando seu link de confirmação...</p>
+    </div>
+
+    <div id="view-invalid" hidden>
+      <h1>Link não válido</h1>
+      <span class="ul"></span>
+      <div class="warn-box" id="invalid-msg" role="alert">
+        Este link não é mais válido. Solicite um novo e-mail de confirmação.
+      </div>
+      <a class="btn" href="login.html">Voltar para o login</a>
+    </div>
+
+    <div id="view-ok" hidden>
+      <h1>E-mail confirmado!</h1>
+      <span class="ul"></span>
+      <div class="ok-box">
+        Seu endereço de e-mail foi confirmado. Agora você já pode entrar no Estudaí!
+      </div>
+      <a class="btn" href="login.html">Ir para o login</a>
+    </div>
+  </div>
+</main>
+
+<script type="module" src="js/lib/cookie-consent.js"></script>
+<script type="module" src="js/pages/confirm-email.js"></script>
+</body>
+</html>

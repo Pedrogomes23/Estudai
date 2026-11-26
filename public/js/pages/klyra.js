@@ -1,12 +1,15 @@
 import { api, ApiError } from '../lib/api.js';
+import { confirmDialog } from '../lib/confirm-dialog.js';
 import { initSidebar } from '../lib/sidebar.js';
 import { $ } from '../lib/dom.js';
 
 let currentConversationId = null;
 let remainingToday = null;
 let isSending = false;
-/** @type {{ name: string, text: string, source: 'file'|'material' } | null} */
+/** @type {{ name: string, token: string, source: 'file'|'material' } | null} */
 let pendingAttachment = null;
+let pendingSendRequest = null;
+let conversationViewVersion = 0;
 
 const els = {
   list: $('klyra-list'),
@@ -33,7 +36,6 @@ const els = {
 
 /** Cache da lista de materiais da plataforma (para busca local). */
 let platformMaterials = [];
-
 
 function showError(msg) {
   if (!els.error) return;
@@ -157,8 +159,7 @@ function renderBubble(role, content, meta) {
   const div = document.createElement('div');
   div.className = `msg-bubble ${role}`;
   const label = role === 'user' ? 'Você' : 'Klyra';
-  const body =
-    role === 'assistant' ? formatMarkdown(content) : escapeHtml(content).replace(/\n/g, '<br>');
+  const body = role === 'assistant' ? formatMarkdown(content) : escapeHtml(content).replace(/\n/g, '<br>');
   let extra = '';
   if (meta?.attachmentName) {
     extra = `<div class="msg-attach">📎 ${escapeHtml(meta.attachmentName)}</div>`;
@@ -240,6 +241,7 @@ function renderConversationList(items) {
 }
 
 async function openConversation(id) {
+  conversationViewVersion++;
   currentConversationId = id;
   showError('');
   setComposerEnabled(true);
@@ -258,6 +260,9 @@ async function openConversation(id) {
 
   try {
     const data = await api.ai.getConversation(id);
+    if (pendingSendRequest?.uncertain && Number(pendingSendRequest.conversationId) === Number(id)) {
+      pendingSendRequest = null;
+    }
     els.messages.innerHTML = '';
     hideEmpty();
 
@@ -279,6 +284,7 @@ async function ensureConversation() {
 }
 
 async function createNewConversation() {
+  conversationViewVersion++;
   try {
     showError('');
     const data = await api.ai.createConversation();
@@ -298,7 +304,14 @@ async function createNewConversation() {
 }
 
 async function deleteConversation(id) {
-  if (!confirm('Excluir esta conversa?')) return;
+  if (
+    !(await confirmDialog({
+      title: 'Excluir conversa?',
+      message: 'Tem certeza de que deseja excluir esta conversa? Essa ação não poderá ser desfeita.',
+      confirmText: 'Excluir',
+    }))
+  )
+    return;
   try {
     await api.ai.deleteConversation(id);
     if (currentConversationId === id) {
@@ -310,21 +323,6 @@ async function deleteConversation(id) {
   } catch (err) {
     showError(err.message || 'Não foi possível excluir.');
   }
-}
-
-async function readFileAsText(file) {
-  const name = file.name || 'arquivo';
-  const lower = name.toLowerCase();
-
-  if (lower.endsWith('.txt') || lower.endsWith('.md') || lower.endsWith('.csv')) {
-    return await file.text();
-  }
-
-  // PDF / outros: envia para o backend extrair
-  const form = new FormData();
-  form.append('file', file);
-  const data = await api.ai.extractText(form);
-  return data.text || '';
 }
 
 async function onFileSelected(e) {
@@ -340,15 +338,19 @@ async function onFileSelected(e) {
 
   try {
     showError('');
-    const text = await readFileAsText(file);
-    if (!text || !text.trim()) {
-      showError('Não consegui ler texto deste arquivo. Tente PDF, TXT ou MD.');
-      els.fileInput.value = '';
-      return;
+    const form = new FormData();
+    form.append('file', file);
+
+    const data = await api.ai.extractText(form);
+    if (!data?.token) {
+      throw new Error('Não foi possível preparar o anexo.');
     }
-    // limita contexto enviado à IA
-    const clipped = text.slice(0, 60000);
-    pendingAttachment = { name: file.name, text: clipped, source: 'file' };
+
+    pendingAttachment = {
+      name: data.fileName || file.name,
+      token: data.token,
+      source: 'file',
+    };
     updateAttachChip();
   } catch (err) {
     showError(err.message || 'Falha ao ler o arquivo.');
@@ -379,7 +381,9 @@ function renderMaterialItems(items) {
 }
 
 function filterPlatformMaterials(query) {
-  const q = String(query || '').trim().toLowerCase();
+  const q = String(query || '')
+    .trim()
+    .toLowerCase();
   if (!q) return platformMaterials;
   return platformMaterials.filter((item) => {
     const hay = [item.title, item.author, item.category, item.discipline, item.area, item.description]
@@ -397,7 +401,8 @@ async function openMaterialPicker() {
     els.materialSearch.value = '';
     requestAnimationFrame(() => els.materialSearch.focus());
   }
-  els.materialList.innerHTML = '<p class="mut" style="padding:16px;text-align:center">Carregando materiais…</p>';
+  els.materialList.innerHTML =
+    '<p class="mut" style="padding:16px;text-align:center">Carregando materiais…</p>';
 
   try {
     // Lista materiais públicos da plataforma (não só os seus)
@@ -417,16 +422,18 @@ async function openMaterialPicker() {
 async function selectMaterial(item) {
   try {
     showError('');
-    els.materialList.innerHTML = '<p class="mut" style="padding:12px">Extraindo texto…</p>';
+    els.materialList.innerHTML = '<p class="mut" style="padding:12px">Preparando material…</p>';
     const data = await api.ai.extractFromMaterial(item.id);
-    if (!data?.text?.trim()) {
-      showError('Não consegui extrair texto deste material.');
+
+    if (!data?.token) {
+      showError('Não consegui preparar este material.');
       closeMaterialModal();
       return;
     }
+
     pendingAttachment = {
-      name: item.title || `material-${item.id}`,
-      text: String(data.text).slice(0, 60000),
+      name: item.title || data.fileName || `material-${item.id}`,
+      token: data.token,
       source: 'material',
     };
     updateAttachChip();
@@ -445,25 +452,53 @@ async function sendMessage(e) {
   e.preventDefault();
   if (isSending) return;
 
+  if (pendingSendRequest?.uncertain) {
+    showError('Atualize o histórico desta conversa antes de enviar outra mensagem.');
+    return;
+  }
+
+  const sendViewVersion = conversationViewVersion;
   const content = (els.input?.value || '').trim();
   if (!content && !pendingAttachment) return;
 
-  const userDisplay =
-    content ||
-    (pendingAttachment ? `Analise o arquivo: ${pendingAttachment.name}` : '');
+  const userDisplay = content || (pendingAttachment ? `Analise o arquivo: ${pendingAttachment.name}` : '');
+
+  const attachmentToSend = pendingAttachment;
+  const requestContent = content || userDisplay;
+  const requestAttachmentToken = attachmentToSend?.token || null;
+  const canReuseRequest =
+    pendingSendRequest &&
+    pendingSendRequest.content === requestContent &&
+    pendingSendRequest.attachmentToken === requestAttachmentToken &&
+    (!pendingSendRequest.conversationId ||
+      !currentConversationId ||
+      pendingSendRequest.conversationId === currentConversationId);
+
+  if (!canReuseRequest) {
+    pendingSendRequest = {
+      requestId: createRequestId(),
+      content: requestContent,
+      attachmentToken: requestAttachmentToken,
+      conversationId: currentConversationId,
+      optimisticBubble: null,
+    };
+  }
 
   isSending = true;
   setComposerEnabled(false);
   showError('');
   hideEmpty();
 
-  els.messages.appendChild(
-    renderBubble('user', userDisplay, {
-      attachmentName: pendingAttachment?.name,
-    }),
-  );
+  if (!pendingSendRequest.optimisticBubble) {
+    pendingSendRequest.optimisticBubble = renderBubble('user', userDisplay, {
+      attachmentName: attachmentToSend?.name,
+    });
+  }
 
-  const attachmentToSend = pendingAttachment;
+  if (!pendingSendRequest.optimisticBubble.isConnected) {
+    els.messages.appendChild(pendingSendRequest.optimisticBubble);
+  }
+
   pendingAttachment = null;
   updateAttachChip();
   if (els.fileInput) els.fileInput.value = '';
@@ -486,10 +521,28 @@ async function sendMessage(e) {
 
   try {
     await ensureConversation();
+    if (sendViewVersion !== conversationViewVersion) {
+      throw new ApiError(
+        409,
+        'CONVERSATION_CHANGED',
+        'A conversa mudou durante o envio. Confira o histórico antes de tentar novamente.',
+      );
+    }
     updateListTitle(currentConversationId, optimisticTitle);
 
+    if (pendingSendRequest.conversationId && pendingSendRequest.conversationId !== currentConversationId) {
+      throw new ApiError(
+        409,
+        'CONVERSATION_CHANGED',
+        'A conversa mudou durante o envio. Confira o histórico antes de tentar novamente.',
+      );
+    }
+    pendingSendRequest.conversationId = currentConversationId;
+    const sendConversationId = currentConversationId;
+
+    let timeoutId;
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         const err = new Error('A Klyra demorou demais para responder. Tente de novo.');
         err.code = 'AI_TIMEOUT';
         reject(err);
@@ -497,20 +550,49 @@ async function sendMessage(e) {
     });
 
     const payload = {
-      content: content || userDisplay,
+      content: requestContent,
+      requestId: pendingSendRequest.requestId,
     };
-    if (attachmentToSend?.text) {
-      payload.attachmentName = attachmentToSend.name;
-      payload.attachmentText = attachmentToSend.text;
+    if (requestAttachmentToken) {
+      payload.attachmentToken = requestAttachmentToken;
     }
 
-    const data = await Promise.race([
-      api.ai.sendMessage(currentConversationId, payload),
-      timeoutPromise,
-    ]);
+    const sendUntilComplete = async () => {
+      let result = await api.ai.sendMessage(sendConversationId, payload);
 
+      // 202 significa que a mesma solicitação ainda está em processamento.
+      // Repetir o POST com o mesmo UUID recupera a resposta sem duplicar a IA.
+      for (let attempt = 0; result?.status === 'processing' && attempt < 8; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 6000));
+        result = await api.ai.sendMessage(sendConversationId, payload);
+      }
+
+      if (result?.status === 'processing') {
+        throw new ApiError(
+          202,
+          'REQUEST_PROCESSING',
+          'A Klyra ainda está processando sua mensagem. Tente novamente em alguns instantes.',
+        );
+      }
+
+      return result;
+    };
+
+    let data;
+    try {
+      data = await Promise.race([sendUntilComplete(), timeoutPromise]);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    pendingSendRequest = null;
     typing.remove();
-    els.messages.appendChild(renderBubble('assistant', data.assistantMessage.content));
+    if (
+      sendViewVersion === conversationViewVersion &&
+      Number(currentConversationId) === Number(sendConversationId)
+    ) {
+      els.messages.appendChild(renderBubble('assistant', data.assistantMessage.content));
+    }
     remainingToday = data.remainingToday;
     updateMeta();
     if (data.title) updateListTitle(currentConversationId, data.title);
@@ -518,6 +600,26 @@ async function sendMessage(e) {
     scrollToBottom();
   } catch (err) {
     typing.remove();
+
+    const resultUncertain = err?.code === 'REQUEST_RESULT_UNCERTAIN';
+
+    if (resultUncertain) {
+      if (pendingSendRequest) pendingSendRequest.uncertain = true;
+      pendingAttachment = null;
+      updateAttachChip();
+      if (els.fileInput) els.fileInput.value = '';
+    } else if (sendViewVersion === conversationViewVersion) {
+      if (content && els.input && !els.input.value) {
+        els.input.value = content;
+        autoResize();
+      }
+
+      if (attachmentToSend && !pendingAttachment) {
+        pendingAttachment = attachmentToSend;
+        updateAttachChip();
+      }
+    }
+
     const msg =
       err instanceof ApiError
         ? err.message
@@ -534,6 +636,20 @@ async function sendMessage(e) {
     isSending = false;
     setComposerEnabled(true);
   }
+}
+
+function createRequestId() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  const bytes = new Uint8Array(16);
+  globalThis.crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 function makeClientTitle(text) {

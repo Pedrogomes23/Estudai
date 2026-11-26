@@ -3,6 +3,10 @@
  */
 
 import { chatWithGemini, GEMINI_DEFAULT_MODEL } from './provider.js';
+import { selectRelevantDocumentContext } from './document-context.js';
+import { allocateContextBudget } from './context-budget.js';
+import { reserveGroqCapacity, settleGroqReservation, markGroqReservationUncertain } from './groq-limits.js';
+import { recordMessageRequestUserMessage } from './message-idempotency.js';
 import { notFound, forbidden, badRequest } from '../../lib/errors.js';
 
 const SYSTEM_INSTRUCTION = `Você é a Klyra, a tutora de inteligência artificial do Estudaí.
@@ -20,7 +24,8 @@ Regras:
 - Respostas com listas, negrito e estrutura clara (markdown) são bem-vindas.`;
 
 const MAX_MESSAGE_LENGTH = 2000;
-const MAX_HISTORY_MESSAGES = 30;
+const MAX_HISTORY_MESSAGES = 8;
+const MAX_HISTORY_CHARS = 6000;
 const DAILY_MESSAGE_LIMIT = 40;
 
 async function countTodayMessages(db, userId) {
@@ -67,8 +72,10 @@ export async function getConversation(db, userId, conversationId) {
   return row;
 }
 
-export async function listMessages(db, userId, conversationId) {
-  await getConversation(db, userId, conversationId);
+export async function listMessages(db, userId, conversationId, conversationAlreadyVerified = false) {
+  if (!conversationAlreadyVerified) {
+    await getConversation(db, userId, conversationId);
+  }
   return db.all(
     `SELECT id, role, content, created_at
        FROM ai_messages
@@ -78,7 +85,20 @@ export async function listMessages(db, userId, conversationId) {
   );
 }
 
-export async function sendMessage(db, { userId, conversationId, content, apiKey, model, attachmentName, attachmentText }) {
+export async function sendMessage(
+  db,
+  {
+    userId,
+    conversationId,
+    content,
+    apiKey,
+    model,
+    attachmentName,
+    attachmentText,
+    requestId,
+    existingUserMessageId,
+  },
+) {
   const trimmed = (content || '').trim();
   const hasAttachment = Boolean(attachmentText && String(attachmentText).trim());
   if (!trimmed && !hasAttachment) throw badRequest('Escreva uma mensagem ou anexe um arquivo.');
@@ -87,55 +107,147 @@ export async function sendMessage(db, { userId, conversationId, content, apiKey,
   }
 
   const usedToday = await countTodayMessages(db, userId);
-  if (usedToday >= DAILY_MESSAGE_LIMIT) {
-    throw forbidden(
-      `Você atingiu o limite diário de ${DAILY_MESSAGE_LIMIT} mensagens. Volte amanhã!`,
-    );
+  if (!existingUserMessageId && usedToday >= DAILY_MESSAGE_LIMIT) {
+    throw forbidden(`Você atingiu o limite diário de ${DAILY_MESSAGE_LIMIT} mensagens. Volte amanhã!`);
   }
 
   const conversation = await getConversation(db, userId, conversationId);
+
+  // Persiste o documento para consultas futuras na mesma conversa.
+  let activeDocument = null;
+
+  if (hasAttachment) {
+    activeDocument = await db.get(
+      `INSERT INTO ai_documents (conversation_id, name, content)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (conversation_id)
+       DO UPDATE SET
+         name = EXCLUDED.name,
+         content = EXCLUDED.content,
+         updated_at = now()
+       RETURNING name, content`,
+      [
+        conversationId,
+        String(attachmentName || 'documento').slice(0, 120),
+        String(attachmentText).slice(0, 60000),
+      ],
+    );
+  } else {
+    activeDocument = await db.get('SELECT name, content FROM ai_documents WHERE conversation_id = $1', [
+      conversationId,
+    ]);
+  }
 
   const history = await db.all(
     `SELECT role, content
        FROM ai_messages
       WHERE conversation_id = $1
+        AND id <= (
+          SELECT COALESCE(MAX(id), 0)
+            FROM ai_messages
+           WHERE conversation_id = $1 AND role = 'assistant'
+        )
       ORDER BY id DESC
       LIMIT $2`,
     [conversationId, MAX_HISTORY_MESSAGES],
   );
   history.reverse();
 
+  // Limita o histórico total enviado à IA.
+  let remainingHistoryChars = MAX_HISTORY_CHARS;
+  const boundedHistory = [];
+
+  for (let i = history.length - 1; i >= 0 && remainingHistoryChars > 0; i--) {
+    const messageContent = String(history[i].content || '');
+    const content = messageContent.slice(-remainingHistoryChars);
+
+    boundedHistory.push({ ...history[i], content });
+    remainingHistoryChars -= content.length;
+  }
+
+  history.splice(0, history.length, ...boundedHistory.reverse());
+
   const storedUserContent = hasAttachment
     ? `${trimmed || 'Analise o arquivo anexado.'}\n\n[Arquivo: ${String(attachmentName || 'documento').slice(0, 120)}]`
     : trimmed;
 
-  const userMsg = await db.get(
-    `INSERT INTO ai_messages (conversation_id, role, content)
-     VALUES ($1, 'user', $2)
-     RETURNING id, role, content, created_at`,
-    [conversationId, storedUserContent],
-  );
+  let userMsg;
+
+  if (existingUserMessageId) {
+    userMsg = await db.get(
+      `SELECT id, role, content, created_at
+         FROM ai_messages
+        WHERE id = $1
+          AND conversation_id = $2
+          AND role = 'user'`,
+      [existingUserMessageId, conversationId],
+    );
+
+    if (!userMsg) {
+      throw badRequest('Não foi possível recuperar a mensagem original desta solicitação.');
+    }
+  } else if (requestId) {
+    userMsg = await db.transaction(async (tx) => {
+      const inserted = await tx.get(
+        `INSERT INTO ai_messages (conversation_id, role, content)
+         VALUES ($1, 'user', $2)
+         RETURNING id, role, content, created_at`,
+        [conversationId, storedUserContent],
+      );
+
+      await recordMessageRequestUserMessage(tx, {
+        userId,
+        requestId,
+        messageId: inserted.id,
+      });
+
+      return inserted;
+    });
+  } else {
+    userMsg = await db.get(
+      `INSERT INTO ai_messages (conversation_id, role, content)
+       VALUES ($1, 'user', $2)
+       RETURNING id, role, content, created_at`,
+      [conversationId, storedUserContent],
+    );
+  }
 
   // Título automático na primeira mensagem (antes da IA, para não ficar "Nova conversa")
   let titleUpdated = null;
   if (conversation.title === 'Nova conversa' && history.length === 0) {
     titleUpdated = makeTitleFromMessage(trimmed || attachmentName || 'Arquivo anexado');
-    await db.run(
-      `UPDATE ai_conversations SET title = $1, updated_at = now() WHERE id = $2`,
-      [titleUpdated, conversationId],
-    );
+    await db.run(`UPDATE ai_conversations SET title = $1, updated_at = now() WHERE id = $2`, [
+      titleUpdated,
+      conversationId,
+    ]);
   } else {
-    await db.run(
-      `UPDATE ai_conversations SET updated_at = now() WHERE id = $1`,
-      [conversationId],
-    );
+    await db.run(`UPDATE ai_conversations SET updated_at = now() WHERE id = $1`, [conversationId]);
   }
 
   let userContentForAi = trimmed || 'Analise o arquivo anexado e ajude conforme o pedido.';
-  if (hasAttachment) {
-    const doc = String(attachmentText).slice(0, 60000);
-    const name = String(attachmentName || 'documento').slice(0, 120);
-    userContentForAi = `${userContentForAi}\n\n---\nConteúdo do arquivo "${name}":\n${doc}\n---`;
+
+  const contextBudget = allocateContextBudget({
+    systemInstruction: SYSTEM_INSTRUCTION,
+    currentMessage: userContentForAi,
+    history,
+    maxEstimatedTokens: 4300,
+  });
+  history.splice(0, history.length, ...contextBudget.history);
+
+  if (activeDocument?.content && contextBudget.documentMaxChars > 0) {
+    const question = trimmed || 'Analise o arquivo anexado e ajude conforme o pedido.';
+
+    const relevantContext = selectRelevantDocumentContext(activeDocument.content, question, {
+      maxChars: contextBudget.documentMaxChars,
+    });
+
+    if (relevantContext) {
+      userContentForAi +=
+        `\n\nMaterial de referência: "${activeDocument.name}".\n` +
+        'Use os trechos selecionados abaixo como fonte para responder à pergunta. ' +
+        'Se a informação solicitada não estiver nesses trechos, deixe isso claro.\n\n' +
+        relevantContext;
+    }
   }
 
   const messagesForAi = [
@@ -144,18 +256,47 @@ export async function sendMessage(db, { userId, conversationId, content, apiKey,
   ];
 
   let aiText;
+  const selectedModel = model || GEMINI_DEFAULT_MODEL;
+  const reservation = await reserveGroqCapacity(db, {
+    model: selectedModel,
+    estimatedInputTokens: contextBudget.estimatedInputTokens,
+    preferredOutputTokens: 2048,
+  });
+
+  let result;
   try {
-    const result = await chatWithGemini({
+    result = await chatWithGemini({
       apiKey,
-      model: model || GEMINI_DEFAULT_MODEL,
+      model: selectedModel,
       messages: messagesForAi,
       systemInstruction: SYSTEM_INSTRUCTION,
+      maxOutputTokens: reservation.maxOutputTokens,
     });
-    aiText = result.text;
-  } catch (err) {
-    // mensagem do usuário já foi salva; propaga o erro para o front
-    throw err;
+
+    await settleGroqReservation(db, reservation.reservationId, result.usage).catch(() => {});
+  } catch (error) {
+    const explicitProviderRejection =
+      error.providerResponse === true &&
+      Number.isInteger(error.status) &&
+      error.status >= 400 &&
+      error.status < 600 &&
+      error.status !== 429;
+
+    if (explicitProviderRejection) {
+      // A resposta HTTP explícita não gerou uma resposta da IA.
+      // Preserva a contagem de requisições, liberando os tokens reservados.
+      await settleGroqReservation(db, reservation.reservationId, { totalTokens: 0 }).catch(() => {});
+    } else {
+      // Timeout, conexão interrompida e 429 permanecem conservadores.
+      await markGroqReservationUncertain(db, reservation.reservationId, {
+        retryAfterMs: error.status === 429 ? (error.retryAfterMs ?? 1000) : undefined,
+      }).catch(() => {});
+    }
+
+    throw error;
   }
+
+  aiText = result.text;
 
   const assistantMsg = await db.get(
     `INSERT INTO ai_messages (conversation_id, role, content)
@@ -167,7 +308,7 @@ export async function sendMessage(db, { userId, conversationId, content, apiKey,
   return {
     userMessage: userMsg,
     assistantMessage: assistantMsg,
-    remainingToday: Math.max(0, DAILY_MESSAGE_LIMIT - usedToday - 1),
+    remainingToday: Math.max(0, DAILY_MESSAGE_LIMIT - usedToday - (existingUserMessageId ? 0 : 1)),
     title: titleUpdated || conversation.title,
   };
 }
@@ -186,10 +327,10 @@ function makeTitleFromMessage(text) {
 }
 
 export async function deleteConversation(db, userId, conversationId) {
-  const result = await db.run(
-    `DELETE FROM ai_conversations WHERE id = $1 AND user_id = $2`,
-    [conversationId, userId],
-  );
+  const result = await db.run(`DELETE FROM ai_conversations WHERE id = $1 AND user_id = $2`, [
+    conversationId,
+    userId,
+  ]);
   if (result === 0) throw notFound('Conversa não encontrada.');
 }
 

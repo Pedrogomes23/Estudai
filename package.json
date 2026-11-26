@@ -1,7 +1,7 @@
 {
   "name": "estudai",
   "version": "1.0.0",
-  "description": "Estuda\u00ed! \u2014 plataforma colaborativa de estudos com reposit\u00f3rio de materiais e comunidades.",
+  "description": "Estudaí! — plataforma colaborativa de estudos com repositório de materiais e comunidades.",
   "private": true,
   "type": "module",
   "main": "src/server.js",
@@ -11,8 +11,8 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env src/server.js",
     "dev": "node --watch --env-file-if-exists=.env src/server.js",
-    "test": "node --test --test-concurrency=1 \"tests/**/*.test.js\"",
-    "lint": "eslint .",
+    "test": "node --env-file-if-exists=.env --test --test-concurrency=1 \"tests/**/*.test.js\"",
+    "lint": "eslint \"src/**/*.js\" \"tests/**/*.js\" \"scripts/**/*.js\" \"public/js/**/*.js\" \"api/**/*.js\" \"eslint.config.js\"",
     "format": "prettier --write \"src/**/*.js\" \"scripts/**/*.js\" \"tests/**/*.js\" \"public/js/**/*.js\"",
     "format:check": "prettier --check \"src/**/*.js\" \"scripts/**/*.js\" \"tests/**/*.js\" \"public/js/**/*.js\"",
     "db:migrate-sqlite": "node --env-file=.env scripts/migrate-sqlite-to-postgres.js",
