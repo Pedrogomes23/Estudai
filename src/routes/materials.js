@@ -38,7 +38,6 @@ const toApi = (row) => ({
   fileSize: row.file_size,
   downloads: row.downloads,
   author: row.author_name,
-  authorId: row.author_id,
   createdAt: new Date(row.created_at).toISOString().replace(/\.\d{3}Z$/, 'Z'),
   mine: Boolean(row.mine),
   canDelete: Boolean(row.mine),
@@ -106,16 +105,15 @@ export function materialsRouter({ db, config }) {
 
     const { n } = await db.get(
       `SELECT COUNT(*)::int AS n FROM materials m
-       WHERE ($2::text IS NULL OR m.category = $2::text)
-         AND ($7::text IS NULL OR m.area = $7::text)
-         AND ($1::text = '' OR position(lower(unaccent($1::text)) IN lower(unaccent(m.title || ' ' || COALESCE(m.discipline,'') || ' ' || COALESCE(m.description,'') || ' ' || COALESCE(m.area,'')))) > 0)
+       WHERE ($1::text IS NULL OR m.category = $1::text)
+         AND ($2::text IS NULL OR m.area = $2::text)
          AND ($3::text = '' OR lower(unaccent(m.discipline)) = lower(unaccent($3::text)))
          AND ($4::int = 0 OR m.author_id = $5)
          AND ($6::int IS NULL OR m.author_id = $6)`,
-      [q, category, discipline, mineOnly ? 1 : 0, req.user.id, authorId, area],
+      [category, area, discipline, mineOnly ? 1 : 0, req.user.id, authorId],
     );
 
-    res.json({ items, total: n, areas: MATERIAL_AREAS });
+    res.json({ items, total: n });
   });
 
   router.get('/areas', async (_req, res) => {
@@ -152,70 +150,101 @@ export function materialsRouter({ db, config }) {
     });
   });
 
-  // --- ROTA DE UPLOAD MODIFICADA ---
   router.post('/', upload.single('file'), async (req, res) => {
     const file = req.file;
-    try {
-      if (!file) throw badRequest('Escolha o arquivo da apostila.');
-      if (!supabase) throw new HttpError(500, 'CONFIG_ERROR', 'Supabase não configurado no servidor.');
-      
-      const data = parse(schemas.material, req.body);
-      
-      // Gera a chave (apenas o nome do arquivo, sem o prefixo da pasta)
-      const storageKey = `${Date.now()}-${randomUUID()}`;
+    if (!file) throw badRequest('Escolha o arquivo da apostila.');
 
-      // 1. Upload para o Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('materials')
-        .upload(storageKey, file.buffer, {
-          contentType: file.mimetype,
-        });
+    const data = parse(schemas.material, req.body);
+    const storageKey = randomUUID();
+    const fileName = cleanFileName(file.originalname);
+    const localStorage = config.nodeEnv === 'test';
 
-      if (uploadError) {
-        console.error('Erro no Supabase Storage:', uploadError);
-        throw new HttpError(500, 'UPLOAD_FAILED', 'Não foi possível salvar o arquivo no storage.');
+    if (localStorage) {
+      await fs.promises.mkdir(config.uploadDir, { recursive: true });
+      await fs.promises.writeFile(path.join(config.uploadDir, storageKey), file.buffer);
+    } else {
+      if (!supabase) {
+        throw new HttpError(500, 'CONFIG_ERROR', 'Supabase não configurado no servidor.');
       }
 
-      // 2. Salva no Banco de Dados
+      const { error } = await supabase.storage
+        .from('materials')
+        .upload(storageKey, file.buffer, { contentType: file.mimetype });
+
+      if (error) {
+        console.error('Erro no Supabase Storage:', error);
+        throw new HttpError(500, 'UPLOAD_FAILED', 'Não foi possível salvar o arquivo.');
+      }
+    }
+
+    try {
       const { id } = await db.get(
-        `INSERT INTO materials (title, area, discipline, category, description, file_name, file_size, storage_key, author_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+        `INSERT INTO materials
+          (title, area, discipline, category, description, file_name, file_size, storage_key, author_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING id`,
         [
           data.title,
           data.area,
           data.discipline || '',
           data.category,
           data.description,
-          cleanFileName(file.originalname),
+          fileName,
           file.size,
           storageKey,
           req.user.id,
         ],
       );
+
       res.status(201).json({ item: toApi(await byId(id, req.user.id)) });
     } catch (err) {
+      if (localStorage) {
+        await fs.promises.rm(path.join(config.uploadDir, storageKey), { force: true });
+      } else if (supabase) {
+        await supabase.storage.from('materials').remove([storageKey]);
+      }
       throw err;
     }
   });
 
-  // --- ROTA DE DOWNLOAD MODIFICADA ---
   router.get('/:id/download', async (req, res) => {
     const row = await byId(parseId(req.params.id), req.user.id);
     if (!row) throw notFound('Apostila não encontrada.');
-    
-    if (!supabase) throw new HttpError(500, 'CONFIG_ERROR', 'Supabase não configurado no servidor.');
 
-    // Gera um link seguro e temporário do Supabase
-    const { data: signedUrlData, error: urlError } = await supabase.storage
+    const localStorage = config.nodeEnv === 'test';
+
+    if (!localStorage && !supabase) {
+      throw new HttpError(500, 'CONFIG_ERROR', 'Supabase não configurado no servidor.');
+    }
+
+    if (localStorage) {
+      const filePath = path.join(config.uploadDir, path.basename(row.storage_key));
+      if (!fs.existsSync(filePath)) {
+        throw notFound('O arquivo desta apostila não está mais disponível.');
+      }
+
+      await db.transaction(async (tx) => {
+        await tx.run('UPDATE materials SET downloads = downloads + 1 WHERE id = $1', [row.id]);
+        await tx.run(
+          `INSERT INTO material_downloads (user_id, material_id)
+           VALUES ($1, $2)
+           ON CONFLICT (user_id, material_id) DO UPDATE SET downloaded_at = now()`,
+          [req.user.id, row.id],
+        );
+      });
+
+      return res.download(filePath, row.file_name);
+    }
+
+    const { data, error } = await supabase.storage
       .from('materials')
-      .createSignedUrl(row.storage_key, 60); // Link válido por 60 segundos
+      .createSignedUrl(row.storage_key, 60);
 
-    if (urlError || !signedUrlData) {
-      console.error('Erro no Supabase:', urlError);
+    if (error || !data?.signedUrl) {
+      console.error('Erro no Supabase:', error);
       throw notFound('O arquivo desta apostila não está mais disponível.');
     }
 
-    // Contabiliza o download
     await db.transaction(async (tx) => {
       await tx.run('UPDATE materials SET downloads = downloads + 1 WHERE id = $1', [row.id]);
       await tx.run(
@@ -226,25 +255,38 @@ export function materialsRouter({ db, config }) {
       );
     });
 
-    // Redireciona o usuário para o arquivo no Supabase
-    res.redirect(signedUrlData.signedUrl);
+    res.redirect(data.signedUrl);
   });
 
-  // --- ROTA DE EXCLUSÃO MODIFICADA ---
   router.delete('/:id', async (req, res) => {
     const row = await byId(parseId(req.params.id), req.user.id);
     if (!row) throw notFound('Apostila não encontrada.');
+
     const isAdmin = Boolean(req.user.is_admin);
-    if (!row.mine && !isAdmin) throw forbidden('Só quem enviou a apostila ou um administrador pode excluí-la.');
-    
-    // Remove do Banco de Dados
-    await db.run('DELETE FROM materials WHERE id = $1', [row.id]);
-    
-    // Remove do Supabase Storage
-    if (supabase && row.storage_key) {
-      await supabase.storage.from('materials').remove([row.storage_key]);
+    if (!row.mine && !isAdmin) {
+      throw forbidden('Só quem enviou a apostila ou um administrador pode excluí-la.');
     }
-    
+
+    if (config.nodeEnv === 'test') {
+      await db.run('DELETE FROM materials WHERE id = $1', [row.id]);
+      await fs.promises.rm(
+        path.join(config.uploadDir, path.basename(row.storage_key)),
+        { force: true },
+      );
+    } else {
+      if (!supabase) {
+        throw new HttpError(500, 'CONFIG_ERROR', 'Supabase não configurado no servidor.');
+      }
+
+      const { error } = await supabase.storage.from('materials').remove([row.storage_key]);
+      if (error) {
+        console.error('Erro ao remover arquivo do Supabase:', error);
+        throw new HttpError(500, 'DELETE_FAILED', 'Não foi possível remover o arquivo.');
+      }
+
+      await db.run('DELETE FROM materials WHERE id = $1', [row.id]);
+    }
+
     res.status(204).end();
   });
 

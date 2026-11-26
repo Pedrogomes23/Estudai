@@ -68,7 +68,7 @@ export function authRouter({ db, config, sessions }) {
       if (isConstraintError(err)) throw emailTaken();
       throw err;
     }
-    res.status(201).json({ user: publicUser({ id: created.id, name, email }) });
+    res.status(201).json({ user: { id: created.id, name, email } });
   });
 
   router.post('/login', limiter, async (req, res) => {

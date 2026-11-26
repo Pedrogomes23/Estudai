@@ -41,7 +41,7 @@ export const schemas = {
   }),
   material: z.object({
     title: text('Nome do material', 80),
-    area: z.enum(MATERIAL_AREAS, { error: 'Escolha a área do material.' }),
+    area: z.enum(MATERIAL_AREAS, { error: 'Escolha a área do material.' }).optional().default('Outros'),
     discipline: z
       .string()
       .trim()

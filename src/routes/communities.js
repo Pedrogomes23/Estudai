@@ -393,6 +393,9 @@ router.post('/:id/messages', chatLimiter, async (req, res) => {
   if (!body) {
     throw badRequest('A mensagem não pode estar vazia.');
   }
+  if (body.length > 1000) {
+    throw badRequest('A mensagem deve ter no máximo 1000 caracteres.');
+  }
 
   const { id: messageId } = await db.get(
     `INSERT INTO community_messages
