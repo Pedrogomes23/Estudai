@@ -52,17 +52,39 @@ export function profileRouter({ db }) {
   router.use(requireAuth);
 
   router.get('/me', async (req, res) => {
-    const row = await db.get(
-      `SELECT u.id, u.name, u.email, COALESCE(u.bio, '') AS bio, u.avatar_key,
-              COALESCE(u.is_admin, false) AS is_admin, u.created_at,
-              (SELECT COUNT(*)::int FROM materials WHERE author_id = u.id) AS materials_count,
-              (SELECT COUNT(*)::int FROM material_downloads WHERE user_id = u.id) AS downloads_count,
-              (SELECT COUNT(*)::int FROM community_members WHERE user_id = u.id) AS communities_joined_count,
-              (SELECT COUNT(*)::int FROM communities WHERE created_by = u.id) AS communities_owned_count
-         FROM users u
-        WHERE u.id = $1`,
-      [req.user.id],
-    );
+    let row;
+    try {
+      row = await db.get(
+        `SELECT u.id, u.name, u.email, COALESCE(u.bio, '') AS bio, u.avatar_key,
+                COALESCE(u.is_admin, false) AS is_admin, u.created_at,
+                (SELECT COUNT(*)::int FROM materials WHERE author_id = u.id) AS materials_count,
+                (SELECT COUNT(*)::int FROM material_downloads WHERE user_id = u.id) AS downloads_count,
+                (SELECT COUNT(*)::int FROM community_members WHERE user_id = u.id) AS communities_joined_count,
+                (SELECT COUNT(*)::int FROM communities WHERE created_by = u.id) AS communities_owned_count
+           FROM users u
+          WHERE u.id = $1`,
+        [req.user.id],
+      );
+    } catch (err) {
+      // Banco ainda sem avatar_key: fallback sem a coluna
+      console.error('[profile/me]', err.message);
+      row = await db.get(
+        `SELECT u.id, u.name, u.email, COALESCE(u.bio, '') AS bio,
+                COALESCE(u.is_admin, false) AS is_admin, u.created_at,
+                (SELECT COUNT(*)::int FROM materials WHERE author_id = u.id) AS materials_count,
+                (SELECT COUNT(*)::int FROM material_downloads WHERE user_id = u.id) AS downloads_count,
+                (SELECT COUNT(*)::int FROM community_members WHERE user_id = u.id) AS communities_joined_count,
+                (SELECT COUNT(*)::int FROM communities WHERE created_by = u.id) AS communities_owned_count
+           FROM users u
+          WHERE u.id = $1`,
+        [req.user.id],
+      );
+      row = { ...row, avatar_key: null };
+    }
+
+    if (!row) {
+      throw badRequest('Usuário não encontrado.');
+    }
 
     const avatarUrl = await signedAvatarUrl(row.avatar_key);
 

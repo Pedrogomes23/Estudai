@@ -1,204 +1,182 @@
 import { Router } from 'express';
-import { requireAdmin } from '../middleware/auth.js';
-import { badRequest, notFound } from '../lib/errors.js';
+import multer from 'multer';
+import { createClient } from '@supabase/supabase-js';
+import { badRequest, HttpError } from '../lib/errors.js';
+import { requireAuth } from '../middleware/auth.js';
 
-/** Quantos usuários aparecem na tabela antes de clicar em "Exibir mais". */
-const PREVIEW_USERS = 10;
-/** Teto de segurança para a lista completa de usuários. */
-const MAX_USERS_LIST = 1000;
+const AVATAR_MAX_BYTES = 4 * 1024 * 1024; // 4 MB
+const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
-/** Devolve a data como ISO (o mesmo formato que o driver `pg` entregava antes). */
-const iso = (value) => (value ? new Date(value).toISOString() : null);
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
-const mapUser = (u) => ({
-  id: u.id,
-  name: u.name,
-  email: u.email,
-  createdAt: iso(u.created_at),
-  isAdmin: Boolean(u.is_admin),
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: AVATAR_MAX_BYTES, files: 1 },
+  fileFilter(_req, file, cb) {
+    if (!ALLOWED_MIME.has(file.mimetype)) {
+      cb(new HttpError(400, 'VALIDATION_ERROR', 'Use JPEG, PNG, WebP ou GIF.'));
+      return;
+    }
+    cb(null, true);
+  },
 });
 
-/**
- * Rotas do painel administrativo.
- * Todas exigem conta com is_admin = true.
- */
-export function adminRouter({ db }) {
+async function signedAvatarUrl(key) {
+  if (!key || !supabase) return null;
+  const { data, error } = await supabase.storage.from('avatars').createSignedUrl(key, 60 * 60 * 24 * 7);
+  if (error || !data?.signedUrl) {
+    console.error('[avatar] signed url:', error?.message);
+    return null;
+  }
+  return data.signedUrl;
+}
+
+function mapUser(row, avatarUrl) {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    bio: row.bio || '',
+    isAdmin: Boolean(row.is_admin),
+    avatarUrl: avatarUrl || null,
+    createdAt: row.created_at
+      ? new Date(row.created_at).toISOString().replace(/\.\d{3}Z$/, 'Z')
+      : null,
+  };
+}
+
+export function profileRouter({ db }) {
   const router = Router();
+  router.use(requireAuth);
 
-  router.use(requireAdmin);
-
-  /**
-   * Estatísticas do dashboard (visão geral + felicidade / feedbacks).
-   *
-   * Tudo é buscado em UMA única consulta (uma ida ao banco). Antes eram 9 consultas:
-   * com o pool pequeno da Vercel (3 conexões) elas ficavam na fila e cada conexão nova
-   * com o Supabase custa um handshake TCP+SSL, então o tempo se multiplicava.
-   */
-  router.get('/stats', async (_req, res) => {
-    const monthAgo = new Date();
-    monthAgo.setMonth(monthAgo.getMonth() - 1);
-
-    const row = await db.get(
-      `SELECT
-         (SELECT COUNT(*)::int FROM users WHERE created_at >= $1) AS users_last_month,
-         (SELECT COUNT(DISTINCT user_id)::int FROM sessions WHERE expires_at > $2) AS active_users,
-         (SELECT COUNT(*)::int FROM communities) AS communities,
-         (SELECT COUNT(*)::int FROM users) AS total_users,
-         (SELECT COUNT(*)::int FROM materials) AS total_materials,
-         (SELECT COUNT(*)::int FROM community_messages) AS total_messages,
-         (SELECT COALESCE(SUM(downloads), 0)::int FROM materials) AS total_downloads,
-         (SELECT COUNT(*)::int FROM feedback) AS feedback_total,
-         (SELECT COALESCE(ROUND(AVG(rating)::numeric, 2), 0)::float FROM feedback) AS feedback_average,
-         (SELECT COALESCE(json_object_agg(r.rating, r.n), '{}'::json)
-            FROM (SELECT rating, COUNT(*)::int AS n FROM feedback GROUP BY rating) r) AS rating_distribution,
-         (SELECT COALESCE(json_agg(x ORDER BY x.created_at DESC, x.id DESC), '[]'::json)
-            FROM (SELECT id, name, email, created_at, is_admin
-                    FROM users
-                   ORDER BY created_at DESC, id DESC
-                   LIMIT $3) x) AS recent_users,
-         (SELECT COALESCE(json_agg(x ORDER BY x.created_at DESC, x.id DESC), '[]'::json)
-            FROM (SELECT c.id, c.name, c.created_at, c.is_official,
-                         u.name AS creator_name,
-                         (SELECT COUNT(*)::int FROM community_members cm WHERE cm.community_id = c.id) AS members
-                    FROM communities c
-                    LEFT JOIN users u ON u.id = c.created_by
-                   ORDER BY c.created_at DESC, c.id DESC
-                   LIMIT 10) x) AS recent_communities,
-         (SELECT COALESCE(json_agg(x ORDER BY x.created_at DESC, x.id DESC), '[]'::json)
-            FROM (SELECT f.id, f.rating, f.category, f.area, f.message, f.allow_contact, f.created_at,
-                         u.name AS user_name, u.email AS user_email
-                    FROM feedback f
-                    JOIN users u ON u.id = f.user_id
-                   ORDER BY f.created_at DESC, f.id DESC
-                   LIMIT 50) x) AS recent_feedback`,
-      [monthAgo.toISOString(), Date.now(), PREVIEW_USERS],
-    );
-
-    const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-    for (const [rating, n] of Object.entries(row.rating_distribution || {})) {
-      distribution[rating] = n;
+  router.get('/me', async (req, res) => {
+    let row;
+    try {
+      row = await db.get(
+        `SELECT u.id, u.name, u.email, COALESCE(u.bio, '') AS bio, u.avatar_key,
+                COALESCE(u.is_admin, false) AS is_admin, u.created_at,
+                (SELECT COUNT(*)::int FROM materials WHERE author_id = u.id) AS materials_count,
+                (SELECT COUNT(*)::int FROM material_downloads WHERE user_id = u.id) AS downloads_count,
+                (SELECT COUNT(*)::int FROM community_members WHERE user_id = u.id) AS communities_joined_count,
+                (SELECT COUNT(*)::int FROM communities WHERE created_by = u.id) AS communities_owned_count
+           FROM users u
+          WHERE u.id = $1`,
+        [req.user.id],
+      );
+    } catch (err) {
+      // Banco ainda sem avatar_key: fallback sem a coluna
+      console.error('[profile/me]', err.message);
+      row = await db.get(
+        `SELECT u.id, u.name, u.email, COALESCE(u.bio, '') AS bio,
+                COALESCE(u.is_admin, false) AS is_admin, u.created_at,
+                (SELECT COUNT(*)::int FROM materials WHERE author_id = u.id) AS materials_count,
+                (SELECT COUNT(*)::int FROM material_downloads WHERE user_id = u.id) AS downloads_count,
+                (SELECT COUNT(*)::int FROM community_members WHERE user_id = u.id) AS communities_joined_count,
+                (SELECT COUNT(*)::int FROM communities WHERE created_by = u.id) AS communities_owned_count
+           FROM users u
+          WHERE u.id = $1`,
+        [req.user.id],
+      );
+      row = { ...row, avatar_key: null };
     }
 
-    res.json({
-      usersCreatedLastMonth: row.users_last_month,
-      activeUsersLive: row.active_users,
-      communitiesCreated: row.communities,
-      totalUsers: row.total_users,
-      totalMaterials: row.total_materials,
-      totalMessages: row.total_messages,
-      totalDownloads: row.total_downloads,
-      // Só os mais recentes; a lista completa vem de GET /api/admin/users ("Exibir mais").
-      recentUsers: row.recent_users.map(mapUser),
-      recentCommunities: row.recent_communities.map((c) => ({
-        id: c.id,
-        name: c.name,
-        createdAt: iso(c.created_at),
-        isOfficial: Boolean(c.is_official),
-        creatorName: c.creator_name || null,
-        members: c.members,
-      })),
-      // Felicidade dos usuários (estilo Play Store, 0–5)
-      happiness: {
-        average: Number(row.feedback_average) || 0,
-        total: row.feedback_total,
-        distribution,
-      },
-      feedbacks: row.recent_feedback.map((f) => ({
-        id: f.id,
-        rating: f.rating,
-        category: f.category,
-        area: f.area,
-        message: f.message,
-        allowContact: Boolean(f.allow_contact),
-        createdAt: iso(f.created_at),
-        userName: f.user_name,
-        userEmail: f.user_email,
-      })),
-    });
-  });
-
-  /** Lista completa de usuários — só é chamada quando o admin clica em "Exibir mais". */
-  router.get('/users', async (_req, res) => {
-    const users = await db.all(
-      `SELECT id, name, email, created_at, is_admin
-         FROM users
-        ORDER BY created_at DESC, id DESC
-        LIMIT $1`,
-      [MAX_USERS_LIST],
-    );
-    res.json({ items: users.map(mapUser) });
-  });
-
-
-  /** Lista avisos enviados (mais recentes primeiro). */
-  router.get('/announcements', async (_req, res) => {
-    const rows = await db.all(
-      `SELECT a.id, a.title, a.body, a.created_at,
-              u.name AS author_name,
-              (SELECT COUNT(*)::int FROM notifications n WHERE n.announcement_id = a.id) AS notified
-         FROM announcements a
-         LEFT JOIN users u ON u.id = a.created_by
-        ORDER BY a.created_at DESC
-        LIMIT 50`,
-    );
-    res.json({
-      items: rows.map((r) => ({
-        id: r.id,
-        title: r.title,
-        body: r.body,
-        authorName: r.author_name || '—',
-        notified: r.notified,
-        createdAt: r.created_at
-          ? new Date(r.created_at).toISOString().replace(/\.\d{3}Z$/, 'Z')
-          : null,
-      })),
-    });
-  });
-
-  /** Aviso de atualização → grava histórico e notifica todos no sininho. */
-  router.post('/announcements', async (req, res) => {
-    const title = String(req.body?.title || '').trim().slice(0, 120);
-    const body = String(req.body?.body || '').trim().slice(0, 2000);
-    if (!title || !body) {
-      throw badRequest('Informe título e mensagem do aviso.');
+    if (!row) {
+      throw badRequest('Usuário não encontrado.');
     }
 
-    const ann = await db.get(
-      `INSERT INTO announcements (title, body, created_by)
-       VALUES ($1, $2, $3)
-       RETURNING id, title, body, created_at`,
-      [title, body, req.user.id],
-    );
+    const avatarUrl = await signedAvatarUrl(row.avatar_key);
 
-    const notified = await db.run(
-      `INSERT INTO notifications (user_id, type, title, body, announcement_id)
-       SELECT id, 'site_update', $1, $2, $3 FROM users`,
-      [title, body, ann.id],
-    );
-
-    res.status(201).json({
-      message: 'Aviso enviado a todos os usuários.',
-      notified: notified ?? 0,
-      item: {
-        id: ann.id,
-        title: ann.title,
-        body: ann.body,
-        notified: notified ?? 0,
-        createdAt: ann.created_at
-          ? new Date(ann.created_at).toISOString().replace(/\.\d{3}Z$/, 'Z')
-          : null,
+    res.json({
+      user: mapUser(row, avatarUrl),
+      stats: {
+        materials: row.materials_count,
+        downloads: row.downloads_count,
+        communitiesJoined: row.communities_joined_count,
+        communitiesOwned: row.communities_owned_count,
       },
     });
   });
 
-  /** Apaga o aviso e remove as notificações ligadas a ele. */
-  router.delete('/announcements/:id', async (req, res) => {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1) throw badRequest('Aviso inválido.');
-    const row = await db.get('SELECT id FROM announcements WHERE id = $1', [id]);
-    if (!row) throw notFound('Aviso não encontrado.');
-    // CASCADE em announcement_id remove as notifications
-    await db.run('DELETE FROM announcements WHERE id = $1', [id]);
+  router.patch('/me', async (req, res) => {
+    const name = typeof req.body?.name === 'string' ? req.body.name.trim().slice(0, 80) : null;
+    const bio = typeof req.body?.bio === 'string' ? req.body.bio.trim().slice(0, 500) : null;
+
+    if (name !== null && name.length < 2) throw badRequest('O nome precisa ter pelo menos 2 caracteres.');
+    if (name === null && bio === null) throw badRequest('Nada para atualizar.');
+
+    if (name !== null) {
+      await db.run('UPDATE users SET name = $1 WHERE id = $2', [name, req.user.id]);
+    }
+    if (bio !== null) {
+      await db.run('UPDATE users SET bio = $1 WHERE id = $2', [bio, req.user.id]);
+    }
+
+    const updated = await db.get(
+      'SELECT id, name, email, bio, avatar_key, is_admin, created_at FROM users WHERE id = $1',
+      [req.user.id],
+    );
+    res.json({ user: mapUser(updated, await signedAvatarUrl(updated.avatar_key)) });
+  });
+
+  /** Upload da foto de perfil (até 4 MB). */
+  router.post('/me/avatar', (req, res, next) => {
+    upload.single('avatar')(req, res, (err) => {
+      if (err) {
+        if (err instanceof HttpError) return next(err);
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return next(badRequest('A foto deve ter no máximo 4 MB.'));
+        }
+        return next(badRequest(err.message || 'Arquivo inválido.'));
+      }
+      next();
+    });
+  }, async (req, res) => {
+    if (!req.file) throw badRequest('Selecione uma imagem.');
+    if (!supabase) {
+      throw new HttpError(500, 'CONFIG_ERROR', 'Armazenamento de imagens não configurado (Supabase).');
+    }
+
+    const ext =
+      req.file.mimetype === 'image/png'
+        ? 'png'
+        : req.file.mimetype === 'image/webp'
+          ? 'webp'
+          : req.file.mimetype === 'image/gif'
+            ? 'gif'
+            : 'jpg';
+    const key = `user-${req.user.id}/avatar.${ext}`;
+
+    const current = await db.get('SELECT avatar_key FROM users WHERE id = $1', [req.user.id]);
+
+    const { error } = await supabase.storage.from('avatars').upload(key, req.file.buffer, {
+      contentType: req.file.mimetype,
+      upsert: true,
+    });
+    if (error) {
+      console.error('[avatar] upload:', error.message);
+      throw new HttpError(500, 'UPLOAD_FAILED', 'Não foi possível salvar a foto.');
+    }
+
+    // Remove chave antiga se o caminho mudou (ex.: png → jpg)
+    if (current?.avatar_key && current.avatar_key !== key) {
+      await supabase.storage.from('avatars').remove([current.avatar_key]).catch(() => {});
+    }
+
+    await db.run('UPDATE users SET avatar_key = $1 WHERE id = $2', [key, req.user.id]);
+    const avatarUrl = await signedAvatarUrl(key);
+
+    res.json({ user: { id: req.user.id, avatarUrl } });
+  });
+
+  /** Remove a foto e volta para as iniciais. */
+  router.delete('/me/avatar', async (req, res) => {
+    const row = await db.get('SELECT avatar_key FROM users WHERE id = $1', [req.user.id]);
+    if (row?.avatar_key && supabase) {
+      await supabase.storage.from('avatars').remove([row.avatar_key]).catch(() => {});
+    }
+    await db.run('UPDATE users SET avatar_key = NULL WHERE id = $1', [req.user.id]);
     res.status(204).end();
   });
 
