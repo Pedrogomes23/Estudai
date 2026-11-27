@@ -34,6 +34,23 @@
   <div class="head">
     <h1>Dashboard administrativo</h1>
     <p>Visão geral da plataforma e avaliações dos estudantes. Atualiza a cada 30 segundos.</p>
+
+    <section class="panel" style="margin-top:20px">
+      <h2>Aviso de atualização</h2>
+      <p class="muted" style="margin:0 0 12px">Envia uma notificação simples para o sininho de todos os usuários.</p>
+      <form id="announcement-form" style="display:grid;gap:10px;max-width:520px">
+        <label>
+          <span style="display:block;font-weight:700;margin-bottom:4px">Título</span>
+          <input id="ann-title" type="text" maxlength="120" required placeholder="Ex.: Nova atualização do Estudaí!" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--fg)">
+        </label>
+        <label>
+          <span style="display:block;font-weight:700;margin-bottom:4px">Mensagem</span>
+          <textarea id="ann-body" rows="4" maxlength="2000" required placeholder="Explique em poucas linhas o que mudou." style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--fg);resize:vertical;font:inherit"></textarea>
+        </label>
+        <button type="submit" class="btn" id="ann-submit">Enviar aviso a todos</button>
+        <p id="ann-msg" class="muted" hidden style="margin:0"></p>
+      </form>
+    </section>
   </div>
 
   <p class="err" id="msg" hidden role="status"></p>

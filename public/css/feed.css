@@ -41,7 +41,7 @@
 .icon-btn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .badge{
   position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;padding:0 5px;border-radius:99px;
-  background:var(--yel);color:var(--ink);font:700 11px Nunito,sans-serif;display:grid;place-items:center;
+  background:#e11d48;color:#fff;font:700 11px Nunito,sans-serif;display:grid;place-items:center;
 }
 .menu-toggle{display:none}
 
@@ -563,3 +563,23 @@ body.sidebar-open{overflow:hidden}
   }
   .content > .section h2 { font-size: 20px; }
 }
+
+/* Balão de aviso de atualização (sininho) */
+.notif-modal{
+  position:fixed;inset:0;z-index:80;display:grid;place-items:center;
+  background:rgba(5,10,30,.55);padding:20px;
+}
+.notif-modal[hidden]{display:none!important}
+.notif-modal-card{
+  position:relative;width:min(420px,100%);background:var(--panel,#0e1838);
+  border:1px solid var(--line,#26356a);border-radius:16px;padding:22px 20px 18px;
+  box-shadow:0 16px 40px rgba(0,0,0,.45);color:var(--fg,#f1f3fa);
+}
+.notif-modal-x{
+  position:absolute;top:10px;right:12px;width:36px;height:36px;border:0;border-radius:8px;
+  background:transparent;color:var(--mut,#a9b3d1);font-size:22px;line-height:1;cursor:pointer;
+}
+.notif-modal-x:hover{color:#fff;background:rgba(255,255,255,.08)}
+.notif-modal-card h3{margin:0 28px 10px 0;font:800 20px/1.25 "Baloo 2",Nunito,sans-serif}
+.notif-modal-body{margin:0 0 16px;color:#dfe3f2;font-size:15px;line-height:1.55;white-space:pre-wrap}
+.notif-modal-ok{width:100%}

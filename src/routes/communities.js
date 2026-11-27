@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit';
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { HttpError, badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
+import { notifyUser } from '../lib/notifications.js';
 import { parse, parseId, schemas } from '../lib/validation.js';
 import { requireAuth } from '../middleware/auth.js';
 import { isConstraintError } from '../db/index.js';
@@ -250,7 +251,29 @@ export function communitiesRouter({ db, config }) {
   router.put('/:id/membership', async (req, res) => {
     const id = parseId(req.params.id);
     await load(id, req.user.id);
-    await join(id, req.user.id);
+    const inserted = await join(id, req.user.id);
+
+    // Notifica o criador da comunidade (sem som; só no sininho)
+    if (inserted > 0) {
+      try {
+        const community = await db.get(
+          'SELECT id, name, created_by FROM communities WHERE id = $1',
+          [id],
+        );
+        if (community?.created_by && community.created_by !== req.user.id) {
+          await notifyUser(db, {
+            userId: community.created_by,
+            type: 'community_join',
+            title: 'Novo membro na sua comunidade',
+            body: `${req.user.name || 'Alguém'} entrou em “${community.name}”.`,
+            link: 'plataforma.html#comunidades',
+          });
+        }
+      } catch (err) {
+        console.error('[notif] community_join:', err.message);
+      }
+    }
+
     res.json({ item: toApi(await load(id, req.user.id)) });
   });
 

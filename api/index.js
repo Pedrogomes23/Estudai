@@ -3,6 +3,7 @@ import { loadConfig } from '../src/config.js';
 import { openDatabase } from '../src/db/index.js';
 import { createApp } from '../src/app.js';
 import { purgeUnverifiedAccounts } from '../src/lib/janitor.js';
+import { notifyNewDeployIfNeeded } from '../src/lib/deploy-notify.js';
 
 /**
  * Ponto de entrada da Vercel (função serverless).
@@ -47,6 +48,14 @@ function getApp() {
         }
       })
       .catch((err) => console.error('[manutenção] contas não verificadas:', err.message));
+
+    notifyNewDeployIfNeeded(db)
+      .then((r) => {
+        if (r.sent) {
+          console.log(`[deploy] aviso de atualização enviado (${r.notified} usuários)`);
+        }
+      })
+      .catch((err) => console.error('[deploy] notify:', err.message));
 
     return app;
   })().catch((err) => {

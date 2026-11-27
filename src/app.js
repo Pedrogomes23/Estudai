@@ -16,6 +16,7 @@ import { materialsRouter } from './routes/materials.js';
 import { profileRouter } from './routes/profile.js';
 import { notificationsRouter } from './routes/notifications.js';
 import { aiRouter } from './routes/ai.js';
+import { cronRouter } from './routes/cron.js';
 
 /** Monta a aplicação Express. Recebe config e banco já prontos (facilita testes). */
 export function createApp({ config, db, mailer }) {
@@ -122,6 +123,7 @@ export function createApp({ config, db, mailer }) {
   app.use('/api/profile', profileRouter({ db }));
   app.use('/api/notifications', notificationsRouter({ db }));
   app.use('/api/ai', aiRouter({ db, config }));
+  app.use('/api/cron', cronRouter({ db }));
   app.use('/api', apiNotFound);
 
   app.use(errorHandler(config));

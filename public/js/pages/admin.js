@@ -266,3 +266,30 @@ async function start() {
 }
 
 start();
+
+
+/* Aviso de atualização → sininho de todos */
+const annForm = document.getElementById('announcement-form');
+if (annForm) {
+  annForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const title = document.getElementById('ann-title').value.trim();
+    const body = document.getElementById('ann-body').value.trim();
+    const msg = document.getElementById('ann-msg');
+    const btn = document.getElementById('ann-submit');
+    if (!title || !body) return;
+    btn.disabled = true;
+    msg.hidden = true;
+    try {
+      const r = await api.admin.announce(title, body);
+      msg.textContent = r.message || `Aviso enviado (${r.notified || 0} usuários).`;
+      msg.hidden = false;
+      annForm.reset();
+    } catch (err) {
+      msg.textContent = err.message || 'Não foi possível enviar o aviso.';
+      msg.hidden = false;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+}

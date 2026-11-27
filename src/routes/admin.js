@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAdmin } from '../middleware/auth.js';
+import { badRequest } from '../lib/errors.js';
 
 /** Quantos usuários aparecem na tabela antes de clicar em "Exibir mais". */
 const PREVIEW_USERS = 10;
@@ -126,6 +127,24 @@ export function adminRouter({ db }) {
       [MAX_USERS_LIST],
     );
     res.json({ items: users.map(mapUser) });
+  });
+
+
+  /** Aviso de atualização do site → notificação no sininho de todos. */
+  router.post('/announcements', async (req, res) => {
+    const title = String(req.body?.title || '').trim().slice(0, 120);
+    const body = String(req.body?.body || '').trim().slice(0, 2000);
+    if (!title || !body) {
+      throw badRequest('Informe título e mensagem do aviso.');
+    }
+
+    const notified = await db.run(
+      `INSERT INTO notifications (user_id, type, title, body)
+       SELECT id, 'site_update', $1, $2 FROM users`,
+      [title, body],
+    );
+
+    res.status(201).json({ message: 'Aviso enviado a todos os usuários.', notified: notified ?? 0 });
   });
 
   return router;
