@@ -436,3 +436,117 @@ body.sidebar-open{overflow:hidden}
   .sp-card { padding: 14px; }
   .topbar .search input { text-overflow: ellipsis; }
 }
+
+/* =====================================================================
+   Meu perfil
+   Os estilos do perfil ficavam num <style> dentro do profile.html, que a política
+   de segurança do site (CSP) bloqueia. Aqui, num arquivo CSS externo, eles passam a
+   valer, já com mais espaçamento entre os blocos.
+   ===================================================================== */
+.content .profile-hero {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+}
+.content .profile-hero h1 {
+  font-size: clamp(26px, 4vw, 34px);
+  margin: 0 0 6px;
+  overflow-wrap: anywhere;
+}
+.content .profile-hero .meta {
+  color: var(--mut);
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.content .profile-hero .bio {
+  color: #dfe3f2;
+  max-width: 60ch;
+  margin: 12px 0 0;
+  line-height: 1.55;
+}
+.content .profile-hero + .quick-cards { margin-bottom: 36px; }
+
+.content .edit-form {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 24px;
+  max-width: 680px;
+  margin: 0 0 40px;
+}
+.content .edit-form h3 {
+  font-size: 20px;
+  margin: 0 0 8px;
+}
+.content .edit-form label {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--mut);
+  margin: 16px 0 6px;
+}
+.content .edit-form input,
+.content .edit-form textarea {
+  width: 100%;
+}
+.content .edit-form textarea {
+  min-height: 110px;
+  resize: vertical;
+  line-height: 1.5;
+}
+.content .edit-form input:focus,
+.content .edit-form textarea:focus {
+  outline: none;
+  border-color: var(--pur);
+  box-shadow: 0 0 0 3px rgba(132, 121, 220, .25);
+}
+.content .edit-form > div:last-child {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 22px;
+}
+.content .edit-form .err { margin: 0; }
+
+.content > .section { margin-bottom: 32px; }
+.content > .section h2 {
+  font-size: 22px;
+  margin: 0 0 16px;
+}
+.content > .section .empty {
+  background: var(--card);
+  border: 1px dashed var(--line);
+  border-radius: 16px;
+  padding: 32px 16px;
+}
+
+@media (max-width: 520px) {
+  .content .profile-hero {
+    margin-bottom: 20px;
+    padding-bottom: 18px;
+  }
+  .content .profile-hero h1 { font-size: 26px; }
+  .content .profile-hero + .quick-cards { margin-bottom: 28px; }
+
+  .content .edit-form {
+    max-width: none;
+    padding: 18px 16px;
+    border-radius: 16px;
+    margin-bottom: 32px;
+  }
+  .content .edit-form input,
+  .content .edit-form textarea { font-size: 16px; } /* 16px evita o zoom automático no celular */
+  .content .edit-form textarea { min-height: 120px; }
+  .content .edit-form > div:last-child { margin-top: 20px; }
+  .content .edit-form > div:last-child .btn {
+    width: 100%;
+    min-height: 46px;
+    text-align: center;
+  }
+  .content > .section h2 { font-size: 20px; }
+}
