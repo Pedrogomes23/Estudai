@@ -331,11 +331,13 @@ const SEED_COMMUNITIES = [
 ];
 
 /** Conta admin padrão (só criada se ainda não existir nenhum admin). */
+// Sem senha escrita no código (o repositório é público).
+// Para criar um admin inicial num banco novo, defina ADMIN_SEED_EMAIL e ADMIN_SEED_PASSWORD
+// nas variáveis de ambiente. Sem elas, nenhum admin é criado automaticamente.
 export const ADMIN_SEED = {
   name: 'Administrador',
-  email: 'admin@estudai.local',
-  // Senha inicial: AdminEstudaí2024!  — altere após o primeiro login em produção.
-  password: 'AdminEstudaí2024!',
+  email: process.env.ADMIN_SEED_EMAIL || '',
+  password: process.env.ADMIN_SEED_PASSWORD || '',
 };
 
 /** Violação de UNIQUE / FOREIGN KEY / CHECK (classe 23 do PostgreSQL: 23505, 23503, 23514...). */
@@ -459,7 +461,7 @@ export async function seed(db) {
 
   // Conta admin: só cria se não houver nenhum administrador ainda.
   const { n: admins } = await db.get('SELECT COUNT(*)::int AS n FROM users WHERE is_admin = true');
-  if (admins === 0) {
+  if (admins === 0 && ADMIN_SEED.email && ADMIN_SEED.password) {
     const existing = await db.get('SELECT id FROM users WHERE email = $1', [ADMIN_SEED.email]);
     if (existing) {
       await db.run('UPDATE users SET is_admin = true WHERE id = $1', [existing.id]);
