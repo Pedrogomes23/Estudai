@@ -1,6 +1,7 @@
 import { loadConfig } from './config.js';
 import { openDatabase } from './db/index.js';
 import { createApp } from './app.js';
+import { purgeUnverifiedAccounts } from './lib/janitor.js';
 
 const config = loadConfig();
 if (!config.databaseUrl) {
@@ -18,9 +19,22 @@ try {
 }
 const app = createApp({ config, db });
 
-// Limpa sessões vencidas ao iniciar e a cada hora.
-const purge = () =>
-  app.locals.sessions.purgeExpired().catch((err) => console.error('[sessões]', err.message));
+// Limpa sessões vencidas e contas não verificadas (>7 dias) ao iniciar e a cada hora.
+const purge = async () => {
+  try {
+    await app.locals.sessions.purgeExpired();
+  } catch (err) {
+    console.error('[sessões]', err.message);
+  }
+  try {
+    const { usersDeleted, tokensDeleted } = await purgeUnverifiedAccounts(db);
+    if (usersDeleted > 0 || tokensDeleted > 0) {
+      console.log(`[manutenção] removidas ${usersDeleted} conta(s) não verificada(s), ${tokensDeleted} token(s)`);
+    }
+  } catch (err) {
+    console.error('[manutenção] contas não verificadas:', err.message);
+  }
+};
 await purge();
 const janitor = setInterval(purge, 3_600_000);
 janitor.unref();

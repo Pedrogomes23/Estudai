@@ -2,6 +2,7 @@
 import { loadConfig } from '../src/config.js';
 import { openDatabase } from '../src/db/index.js';
 import { createApp } from '../src/app.js';
+import { purgeUnverifiedAccounts } from '../src/lib/janitor.js';
 
 /**
  * Ponto de entrada da Vercel (função serverless).
@@ -37,6 +38,15 @@ function getApp() {
     app.locals.sessions.purgeExpired().catch((err) =>
       console.error('[sessões]', err.message)
     );
+    purgeUnverifiedAccounts(db)
+      .then(({ usersDeleted, tokensDeleted }) => {
+        if (usersDeleted > 0 || tokensDeleted > 0) {
+          console.log(
+            `[manutenção] removidas ${usersDeleted} conta(s) não verificada(s), ${tokensDeleted} token(s)`,
+          );
+        }
+      })
+      .catch((err) => console.error('[manutenção] contas não verificadas:', err.message));
 
     return app;
   })().catch((err) => {

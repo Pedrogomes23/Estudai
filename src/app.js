@@ -126,5 +126,6 @@ export function createApp({ config, db, mailer }) {
 
   app.use(errorHandler(config));
   app.locals.sessions = sessions;
+  app.locals.db = db;
   return app;
 }
