@@ -16,7 +16,7 @@ header{display:flex;justify-content:space-between;align-items:center;padding:16p
 .logo{font-size:30px;font-weight:800;color:#fff;text-decoration:none}
 .logo b{color:var(--yel)}
 nav a:hover,nav a:focus-visible{color:#fff}
-.btn{display:inline-block;background:var(--yel);color:var(--ink);font:700 16px Nunito,sans-serif;padding:12px 26px;border-radius:999px;text-decoration:none;border:0;cursor:pointer}
+.btn{display:inline-flex;align-items:center;justify-content:center;background:var(--yel);color:var(--ink);font:700 16px/1.2 Nunito,sans-serif;padding:12px 26px;border-radius:999px;text-decoration:none;border:0;cursor:pointer;text-align:center;vertical-align:middle;box-sizing:border-box}
 .btn.p{background:var(--pur2);color:#fff}
 :focus-visible{outline:3px solid var(--pur);outline-offset:2px}
 .tabs{display:flex;margin-top:28px}

@@ -187,7 +187,7 @@ async function submitSignup(event) {
     $('li-email').value = email;
     showVerificationNotice(
       email,
-      'Cadastro criado! Enviamos um link de confirmação para seu e-mail. Confirme o endereço antes de entrar no Estudaí!',
+      'Cadastro criado! Enviamos um link de confirmação para seu e-mail. Confirme o endereço antes de entrar no Estudaí! Se não encontrar, verifique também a caixa de spam ou lixo eletrônico.',
     );
   } catch (err) {
     if (err.code === 'EMAIL_TAKEN' || err.fields) {
@@ -204,7 +204,7 @@ async function submitSignup(event) {
       $('li-email').value = email;
       showVerificationNotice(
         email,
-        'Sua conta foi criada, mas não conseguimos enviar o e-mail de confirmação. Você pode solicitar outro envio abaixo.',
+        'Sua conta foi criada, mas não conseguimos enviar o e-mail de confirmação. Você pode solicitar outro envio abaixo. Depois, confira a caixa de entrada e o spam.',
       );
     } else {
       fail('su-pass', err.message || 'Não foi possível concluir o cadastro. Tente novamente.');
