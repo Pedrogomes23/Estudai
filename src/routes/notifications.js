@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { parseId } from '../lib/validation.js';
 import { requireAuth } from '../middleware/auth.js';
 import { notFound } from '../lib/errors.js';
+import { RELEASE_LINK_PREFIX, findRelease } from '../lib/release-notes.js';
 
 export function notificationsRouter({ db }) {
   const router = Router();
@@ -31,6 +32,25 @@ export function notificationsRouter({ db }) {
         createdAt: new Date(r.created_at).toISOString().replace(/\.\d{3}Z$/, 'Z'),
       })),
       unread,
+    });
+  });
+
+  /** Detalhes de uma notificação de novidade (texto completo do balão). */
+  router.get('/:id/release', async (req, res) => {
+    const id = parseId(req.params.id);
+    const row = await db.get('SELECT link FROM notifications WHERE id = $1 AND user_id = $2', [
+      id,
+      req.user.id,
+    ]);
+    if (!row?.link?.startsWith(RELEASE_LINK_PREFIX)) throw notFound('Detalhes não encontrados.');
+    const release = findRelease(row.link.slice(RELEASE_LINK_PREFIX.length));
+    if (!release) throw notFound('Detalhes não encontrados.');
+    res.json({
+      release: {
+        title: release.title,
+        description: release.description,
+        items: release.items,
+      },
     });
   });
 

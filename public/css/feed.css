@@ -568,21 +568,34 @@ body.sidebar-open{overflow:hidden}
 .notif-modal{
   position:fixed;inset:0;z-index:80;display:grid;place-items:center;
   background:rgba(5,10,30,.55);padding:20px;
+  animation:notif-fade .2s ease-out;
 }
 .notif-modal[hidden]{display:none!important}
 .notif-modal-card{
   position:relative;width:min(420px,100%);background:var(--panel,#0e1838);
   border:1px solid var(--line,#26356a);border-radius:16px;padding:22px 20px 18px;
   box-shadow:0 16px 40px rgba(0,0,0,.45);color:var(--fg,#f1f3fa);
+  transform-origin:top right;
+  animation:notif-pop .32s cubic-bezier(.2,.9,.25,1.15);
 }
-.notif-modal-x{
-  position:absolute;top:10px;right:12px;width:36px;height:36px;border:0;border-radius:8px;
-  background:transparent;color:var(--mut,#a9b3d1);font-size:22px;line-height:1;cursor:pointer;
-}
-.notif-modal-x:hover{color:#fff;background:rgba(255,255,255,.08)}
-.notif-modal-card h3{margin:0 28px 10px 0;font:800 20px/1.25 "Baloo 2",Nunito,sans-serif}
+.notif-modal-card h3{margin:0 0 10px;font:800 20px/1.25 "Baloo 2",Nunito,sans-serif}
 .notif-modal-body{margin:0 0 16px;color:#dfe3f2;font-size:15px;line-height:1.55;white-space:pre-wrap}
 .notif-modal-ok{width:100%}
+@keyframes notif-fade{from{opacity:0}to{opacity:1}}
+@keyframes notif-pop{
+  from{opacity:0;transform:translateY(-14px) scale(.82)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+@media (prefers-reduced-motion:reduce){.notif-modal,.notif-modal-card{animation:none}}
+.notif-modal-list{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:8px}
+.notif-modal-list li{
+  position:relative;padding:9px 12px 9px 34px;border-radius:12px;
+  background:rgba(132,121,220,.10);border:1px solid rgba(132,121,220,.22);
+  color:#dfe3f2;font-size:14px;line-height:1.45;
+}
+.notif-modal-list li::before{
+  content:"✓";position:absolute;left:12px;top:9px;color:var(--yel,#fbb817);font-weight:800;
+}
 
 
 /* Foto de perfil circular */

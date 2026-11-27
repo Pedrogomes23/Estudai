@@ -253,7 +253,7 @@ function renderNotifications(data) {
   list.innerHTML = data.items
     .map(
       (n) => `
-    <div class="notif-item ${n.read ? '' : 'unread'}" data-id="${n.id}" data-type="${escapeHtml(n.type || '')}" data-title="${escapeHtml(n.title)}" data-body="${escapeHtml(n.body || '')}">
+    <div class="notif-item ${n.read ? '' : 'unread'}" data-id="${n.id}" data-type="${escapeHtml(n.type || '')}" data-title="${escapeHtml(n.title)}" data-body="${escapeHtml(n.body || '')}" data-link="${escapeHtml(n.link || '')}">
       <div class="nt">${escapeHtml(n.title)}</div>
       <div class="nb">${escapeHtml(n.body || '')}</div>
     </div>`,
@@ -261,7 +261,7 @@ function renderNotifications(data) {
     .join('');
 }
 
-function openNotifModal(title, body) {
+function openNotifModal(title, body, items = []) {
   let modal = document.getElementById('notif-modal');
   if (!modal) {
     modal = document.createElement('div');
@@ -269,23 +269,36 @@ function openNotifModal(title, body) {
     modal.className = 'notif-modal';
     modal.innerHTML = `
       <div class="notif-modal-card" role="dialog" aria-modal="true" aria-labelledby="notif-modal-title">
-        <button type="button" class="notif-modal-x" aria-label="Fechar">×</button>
         <h3 id="notif-modal-title"></h3>
         <p class="notif-modal-body"></p>
+        <ul class="notif-modal-list" hidden></ul>
         <button type="button" class="btn notif-modal-ok">Entendi</button>
       </div>`;
     document.body.append(modal);
     const close = () => {
       modal.hidden = true;
     };
-    modal.querySelector('.notif-modal-x').addEventListener('click', close);
     modal.querySelector('.notif-modal-ok').addEventListener('click', close);
     modal.addEventListener('click', (e) => {
       if (e.target === modal) close();
     });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !modal.hidden) close();
+    });
   }
   modal.querySelector('#notif-modal-title').textContent = title || 'Aviso';
-  modal.querySelector('.notif-modal-body').textContent = body || '';
+  const bodyEl = modal.querySelector('.notif-modal-body');
+  bodyEl.textContent = body || '';
+  bodyEl.hidden = !body;
+  const list = modal.querySelector('.notif-modal-list');
+  list.replaceChildren(
+    ...items.map((text) => {
+      const li = document.createElement('li');
+      li.textContent = text;
+      return li;
+    }),
+  );
+  list.hidden = items.length === 0;
   modal.hidden = false;
 }
 
@@ -494,8 +507,17 @@ document.addEventListener('click', (e) => {
     notifItem.classList.remove('unread');
     // Atualização do site: abre balãozinho com a mensagem completa
     if (notifItem.dataset.type === 'site_update') {
-      openNotifModal(notifItem.dataset.title, notifItem.dataset.body);
+      const { title, body, link } = notifItem.dataset;
       $('notif-panel').hidden = true;
+      if (link?.startsWith('release:')) {
+        // Novidade de deploy: busca o texto completo; se falhar, mostra o resumo.
+        api.notifications
+          .release(notifItem.dataset.id)
+          .then((r) => openNotifModal(r.title || title, r.description || body, r.items || []))
+          .catch(() => openNotifModal(title, body));
+      } else {
+        openNotifModal(title, body);
+      }
     }
     // Atualiza badge se não restar unread
     const still = document.querySelectorAll('.notif-item.unread').length;

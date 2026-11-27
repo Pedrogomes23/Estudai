@@ -1,5 +1,6 @@
 import { ApiError, api } from '../lib/api.js';
 import { $, escapeHtml, initTabs } from '../lib/dom.js';
+import { confirmDialog } from '../lib/confirm-dialog.js';
 
 const POLL_MS = 30_000;
 const MAX_USERS_LIST = 1000; // mesmo teto do servidor (GET /api/admin/users)
@@ -305,7 +306,7 @@ async function loadAnnouncements() {
         (a) => `<article class="ann-item" data-id="${a.id}">
           <div class="ann-item-head">
             <strong>${escapeAnn(a.title)}</strong>
-            <button type="button" class="lnk ann-del" data-id="${a.id}">Apagar</button>
+            <button type="button" class="ann-del" data-id="${a.id}">Apagar</button>
           </div>
           <p class="ann-item-body">${escapeAnn(a.body)}</p>
           <div class="ann-item-meta muted">${formatAnnDate(a.createdAt)} · ${a.notified || 0} notificaç${(a.notified || 0) === 1 ? 'ão' : 'ões'}</div>
@@ -347,14 +348,24 @@ if (annForm) {
     const btn = e.target.closest('.ann-del');
     if (!btn) return;
     const id = Number(btn.dataset.id);
-    if (!id || !confirm('Apagar este aviso? Ele some do sininho de todos os usuários.')) return;
+    if (!id) return;
+    const ok = await confirmDialog({
+      title: 'Apagar este aviso?',
+      message: 'Ele some do sininho de todos os usuários. Essa ação não poderá ser desfeita.',
+      confirmText: 'Apagar',
+    });
+    if (!ok) return;
     btn.disabled = true;
     try {
       await api.admin.deleteAnnouncement(id);
       loadAnnouncements();
     } catch (err) {
-      alert(err.message || 'Não foi possível apagar.');
       btn.disabled = false;
+      const msg = document.getElementById('ann-msg');
+      if (msg) {
+        msg.textContent = err.message || 'Não foi possível apagar o aviso.';
+        msg.hidden = false;
+      }
     }
   });
 }

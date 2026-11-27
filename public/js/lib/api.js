@@ -128,6 +128,7 @@ export const api = {
   },
   notifications: {
     list: () => request('GET', '/api/notifications'),
+    release: (id) => request('GET', `/api/notifications/${id}/release`).then((r) => r.release),
     markRead: (id) => request('POST', `/api/notifications/${id}/read`),
     markAllRead: () => request('POST', '/api/notifications/read-all'),
   },
