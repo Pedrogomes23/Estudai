@@ -84,3 +84,8 @@ nav a[aria-current=page]{color:#fff;font-weight:700}
   #send{width:100%}
 }
 @media(prefers-reduced-motion:reduce){.stars svg{transition:none}}
+
+/* ===== Responsivo para celular (somente telas pequenas) ===== */
+@media (max-width: 520px) {
+  .mine .list { grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); }
+}

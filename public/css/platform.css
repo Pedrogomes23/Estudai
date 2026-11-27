@@ -64,3 +64,16 @@ select{width:auto;min-width:170px}
 .people .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .people .tag{margin:0;font-size:11px}
 @media(max-width:760px){.room{grid-template-columns:1fr}.people{order:-1}.people ul{max-height:180px}.bubble{max-width:92%}}
+
+/* ===== Responsivo para celular (somente telas pequenas) ===== */
+@media (max-width: 520px) {
+  #gc { grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); }
+  #gm { grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); }
+  .head { padding: 24px 0 4px; }
+  .panel { margin-bottom: 32px; }
+  .bar select { flex: 1 1 calc(50% - 5px); min-width: 0; }
+  .room-head { padding: 20px 0 14px; }
+  .msgs { height: min(420px, 55vh); height: min(420px, 55dvh); }
+  .modal { padding: 12px; }
+  .modal form { padding: 22px 16px; }
+}

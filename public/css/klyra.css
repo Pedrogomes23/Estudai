@@ -529,3 +529,90 @@
   font-size: 13px;
   color: rgba(255, 255, 255, 0.55);
 }
+
+/* =====================================================================
+   Responsivo para celular — Klyra IA
+   Tudo dentro de @media de telas pequenas: o layout de PC não muda.
+   ===================================================================== */
+@media (max-width: 860px) {
+  /* Tela de chat com altura fixa: só as mensagens rolam e o campo de digitar
+     fica sempre visível, colado no fim da tela. */
+  .klyra-layout {
+    height: calc(100vh - var(--topbar-h, 65px));
+    height: calc(100dvh - var(--topbar-h, 65px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    min-height: 0;
+    max-height: none;
+    grid-template-columns: minmax(0, 1fr); /* sem isso, uma linha de código longa alarga a página toda */
+    grid-template-rows: minmax(0, 1fr);
+    border-top: 0;
+  }
+  .klyra-chat { min-width: 0; }
+
+  /* No celular o histórico fica escondido e abre pelo botão do topo. A regra original que
+     escondia vinha antes da regra base no arquivo e perdia, deixando o histórico sempre aberto. */
+  .klyra-sidebar { display: none; }
+
+  /* Histórico de conversas abre abaixo do topo, então o botão de histórico continua acessível */
+  .klyra-sidebar.open {
+    display: flex;
+    inset: auto;
+    top: calc(var(--topbar-h, 65px) + env(safe-area-inset-top, 0px));
+    right: 0;
+    bottom: 0;
+    left: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .klyra-sidebar-head { padding: 12px; }
+  .klyra-sidebar-head .btn { min-height: 44px; }
+  .klyra-item { padding: 12px; }
+  .klyra-item .del { padding: 8px 10px; }
+
+  /* Mensagens */
+  .klyra-messages {
+    padding: 14px 12px 10px;
+    gap: 12px;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .klyra-empty { padding: 16px; }
+  .klyra-empty h2 { font-size: 22px; }
+  .msg-bubble {
+    max-width: 92%;
+    padding: 11px 14px;
+    overflow-wrap: anywhere;
+  }
+  .msg-bubble.assistant { max-width: 100%; }
+  .msg-bubble .msg-body .md-code { max-width: 100%; }
+  .klyra-error { margin: 0 12px 8px; }
+
+  /* Campo de digitar: texto em cima (largura total) e botões embaixo */
+  .klyra-composer {
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  .klyra-composer form {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .klyra-composer textarea {
+    order: -1;
+    flex: 1 1 100%;
+    min-height: 70px; /* cabe o texto de ajuda em 2 linhas sem cortar */
+    line-height: 1.4;
+    font-size: 16px; /* 16px evita o zoom automático ao tocar no campo */
+  }
+  .klyra-composer .attach-btn { width: 44px; height: 44px; }
+  .klyra-composer .btn {
+    margin-left: auto;
+    min-height: 44px;
+    padding: 10px 28px;
+  }
+  .klyra-meta { margin-top: 4px; }
+
+  .klyra-modal-card.materials-picker { max-height: min(86vh, 620px); max-height: min(86dvh, 620px); }
+}
+
+/* Em telas de toque não existe "hover": mantém o botão de excluir conversa visível */
+@media (hover: none) {
+  .klyra-item .del { opacity: .8; }
+}

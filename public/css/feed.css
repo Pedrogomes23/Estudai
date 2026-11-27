@@ -341,3 +341,98 @@ body.sidebar-open{overflow:hidden}
     flex-basis: 38px;
   }
 }
+
+/* =====================================================================
+   Responsivo para celular
+   Tudo dentro de @media de telas pequenas: o layout de PC não muda.
+   ===================================================================== */
+@media (max-width: 900px) {
+  :root { --topbar-h: 65px; }
+
+  .layout { min-height: 100vh; min-height: 100dvh; }
+
+  /* Sidebar ocupa exatamente a área visível da tela. Antes, height:100vh era maior
+     que a tela do celular (barra do navegador) e empurrava "Sair da conta" para fora. */
+  .sidebar {
+    top: 0;
+    bottom: 0;
+    height: auto;
+    width: min(300px, 86vw);
+    overscroll-behavior: contain;
+  }
+  .side-nav {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .side-foot {
+    flex-shrink: 0;
+    padding: 12px 12px calc(14px + env(safe-area-inset-bottom, 0px));
+    background: var(--bar);
+  }
+  .side-user .meta span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* Botão "Sair da conta" bem visível e fácil de tocar (o estilo inline da página pede !important) */
+  .side-foot [data-logout] {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 100% !important;
+    min-height: 46px;
+    margin-top: 10px !important;
+    padding: 12px 14px !important;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: rgba(132, 121, 220, .12);
+    color: var(--fg);
+    font: 700 15px Nunito, sans-serif;
+    text-decoration: none;
+  }
+  .side-foot [data-logout]:hover,
+  .side-foot [data-logout]:active {
+    background: rgba(255, 138, 138, .15);
+    border-color: var(--err);
+    color: var(--err);
+  }
+
+  .topbar { padding: 10px 14px; gap: 10px; }
+  .topbar .icon-btn { width: 44px; height: 44px; flex-shrink: 0; }
+  .topbar .search { max-width: none; min-width: 0; }
+  .topbar .actions { flex-shrink: 0; }
+
+  /* Painel de notificações: ocupa a largura da tela em vez de vazar pela esquerda */
+  .notif-panel {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    top: calc(var(--topbar-h) + env(safe-area-inset-top, 0px) + 6px);
+    width: auto;
+    max-height: min(70vh, 480px);
+    max-height: min(70dvh, 480px);
+  }
+}
+
+@media (max-width: 520px) {
+  .content { padding: 14px 12px calc(20px + env(safe-area-inset-bottom, 0px)); }
+  .greet { margin-bottom: 14px; }
+  .greet h1 { font-size: 24px; }
+  .greet p { font-size: 15px; }
+
+  .quick-cards { gap: 10px; margin-bottom: 18px; }
+  .qcard { padding: 12px 14px; }
+  .qcard .n { font-size: 22px; }
+
+  .chip { padding: 9px 14px; }
+  .filters select { flex: 1 1 calc(50% - 8px); min-width: 0; }
+
+  .mcard { padding: 14px; }
+  .mcard h3 { font-size: 16px; overflow-wrap: anywhere; }
+  .community-card { padding: 15px; }
+  .sp-card { padding: 14px; }
+  .topbar .search input { text-overflow: ellipsis; }
+}
