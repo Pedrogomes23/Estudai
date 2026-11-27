@@ -21,16 +21,18 @@
   <link rel="stylesheet" href="css/home.css">
 </head>
 <body>
+<a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+
 <div id="auth">
   <div class="top">
     <header>
       <a class="logo" href="index.html" aria-label="Estudaí! – início">Estud<b>aí!</b></a>
-      <nav>
+      <nav aria-label="Menu principal">
         <a href="index.html">Início</a>
       </nav>
     </header>
   </div>
-  <main>
+  <main id="conteudo" tabindex="-1">
     <div class="intro">
       <h1>Bem-vindo de volta,<span>vamos estudar?</span></h1>
       <p>Entre para baixar materiais, enviar seus resumos e participar das comunidades de estudo.</p>
@@ -97,6 +99,8 @@
 </div>
 
 <script type="module" src="js/lib/cookie-consent.js"></script>
+<script type="module" src="js/lib/accessibility.js"></script>
+<script type="module" src="js/lib/vlibras.js"></script>
 <script type="module" src="js/pages/login.js"></script>
 </body>
 </html>

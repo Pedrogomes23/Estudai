@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Acessibilidade – Estudaí!</title>
+<meta name="description" content="Recursos de acessibilidade do Estudaí!: VLibras, barra de ajustes, atalhos de teclado e compromisso com WCAG 2.2 AA.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@400;600;700&display=swap">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
+<meta name="theme-color" content="#0d1838">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/cookies.css">
+</head>
+<body>
+<a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+
+<div class="top">
+  <header>
+    <a class="logo" href="index.html" aria-label="Estudaí! – início">Estud<b>aí!</b></a>
+    <nav aria-label="Navegação da página">
+      <a href="index.html">Voltar ao início</a>
+    </nav>
+  </header>
+</div>
+
+<main id="conteudo" tabindex="-1" class="policy">
+  <h1>Acessibilidade</h1>
+  <span class="ul"></span>
+  <p class="upd">Última atualização: 27 de novembro de 2026</p>
+
+  <p>O Estudaí! busca ser utilizável por todas as pessoas, com ou sem deficiência. Seguimos, de forma parcial e em evolução contínua, as diretrizes <strong>WCAG 2.2 nível AA</strong> e orientações do eMAG (Modelo de Acessibilidade em Governo Eletrônico).</p>
+
+  <h2>Recursos disponíveis</h2>
+  <ul>
+    <li><strong>VLibras</strong> — tradutor oficial gratuito do governo brasileiro para Libras. O botão fica no canto inferior direito. O texto selecionado é enviado ao serviço do governo apenas para tradução; não usamos para publicidade.</li>
+    <li><strong>Barra de acessibilidade</strong> — botão fixo na lateral esquerda (ou perto da base em telas pequenas). Permite:
+      <ul>
+        <li>aumentar ou diminuir o tamanho do texto (até 200%);</li>
+        <li>alto contraste;</li>
+        <li>destacar links;</li>
+        <li>aumentar o espaçamento do texto;</li>
+        <li>fonte mais legível;</li>
+        <li>pausar animações;</li>
+        <li>restaurar o padrão.</li>
+      </ul>
+      As preferências ficam salvas neste navegador (chave <code>estudai_a11y</code>).
+    </li>
+    <li><strong>Link “Pular para o conteúdo”</strong> — primeiro elemento focável de cada página; visível ao receber foco pelo teclado.</li>
+    <li><strong>Navegação por teclado</strong> — foco visível, ordem lógica, modais com foco preso e tecla Esc para fechar.</li>
+    <li><strong>Suporte a leitores de tela</strong> — landmarks, títulos hierárquicos, labels em formulários e regiões ao vivo onde o conteúdo muda.</li>
+    <li><strong>Respeito a prefers-reduced-motion</strong> — animações e rolagem suave são reduzidas quando o sistema solicita.</li>
+  </ul>
+
+  <h2>Atalhos de teclado</h2>
+  <ul>
+    <li><kbd>Tab</kbd> / <kbd>Shift+Tab</kbd> — navegar entre elementos interativos.</li>
+    <li><kbd>Enter</kbd> ou <kbd>Espaço</kbd> — ativar botões e links.</li>
+    <li><kbd>Esc</kbd> — fechar o painel de acessibilidade, o aviso de cookies (quando aberto pelo rodapé) e diálogos de confirmação.</li>
+  </ul>
+
+  <h2>Limitações conhecidas</h2>
+  <ul>
+    <li>Algumas áreas dinâmicas (chat da comunidade e Klyra) ainda podem receber melhorias de anúncio para leitores de tela.</li>
+    <li>O widget VLibras depende de serviços externos do governo e de CDN; em redes com bloqueio de terceiros ele pode não carregar.</li>
+    <li>O contraste e o tamanho de toque foram revisados nos componentes principais; páginas legadas ou conteúdo gerado por usuários podem variar.</li>
+  </ul>
+
+  <h2>Contato</h2>
+  <p>Encontrou uma barreira? Conte para a gente pelo formulário de <a href="feedback.html">Feedback</a>. Sua mensagem ajuda a priorizar as próximas melhorias.</p>
+</main>
+
+<script type="module" src="js/lib/cookie-consent.js"></script>
+<script type="module" src="js/lib/accessibility.js"></script>
+<script type="module" src="js/lib/vlibras.js"></script>
+</body>
+</html>

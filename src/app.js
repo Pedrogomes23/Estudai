@@ -30,13 +30,39 @@ export function createApp({ config, db, mailer }) {
       contentSecurityPolicy: {
         useDefaults: true,
         directives: {
-          // ADICIONADO: https://esm.sh para permitir o carregamento da biblioteca do Supabase
-          'script-src': ["'self'", 'https://esm.sh'],
+          // esm.sh = Supabase client; vlibras.gov.br + jsdelivr = widget VLibras (gov redireciona ao CDN)
+          'script-src': [
+            "'self'",
+            'https://esm.sh',
+            'https://vlibras.gov.br',
+            'https://cdn.jsdelivr.net',
+            // Unity WebGL do avatar VLibras (mais restrito que unsafe-eval)
+            "'wasm-unsafe-eval'",
+          ],
           'style-src': ["'self'", 'https://fonts.googleapis.com'],
-          'font-src': ['https://fonts.gstatic.com'],
-          // ATUALIZADO: Permite carregar imagens e conectar no Supabase
-          'img-src': ["'self'", 'data:', 'https://*.supabase.co'], 
-          'connect-src': ["'self'", 'https://*.supabase.co'],
+          // fontes do Google + possíveis assets tipográficos do VLibras
+          'font-src': ['https://fonts.gstatic.com', 'https://vlibras.gov.br', 'https://cdn.jsdelivr.net'],
+          // Supabase storage + avatares/ícones do VLibras
+          'img-src': [
+            "'self'",
+            'data:',
+            'blob:',
+            'https://*.supabase.co',
+            'https://vlibras.gov.br',
+            'https://cdn.jsdelivr.net',
+          ],
+          // API própria, Supabase e recursos do widget VLibras
+          'connect-src': [
+            "'self'",
+            'https://*.supabase.co',
+            'https://vlibras.gov.br',
+            'https://cdn.jsdelivr.net',
+          ],
+          // iframe interno do player VLibras
+          'frame-src': ['https://vlibras.gov.br'],
+          // Unity WebGL do avatar VLibras pode precisar de workers e wasm
+          'worker-src': ["'self'", 'blob:', 'https://vlibras.gov.br', 'https://cdn.jsdelivr.net'],
+          'media-src': ["'self'", 'blob:', 'https://vlibras.gov.br', 'https://cdn.jsdelivr.net'],
           'frame-ancestors': ["'none'"],
           'upgrade-insecure-requests': config.isProd ? [] : null,
         },

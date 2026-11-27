@@ -28,14 +28,17 @@
 </style>
 </head>
 <body>
+<a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+
+<main id="conteudo" tabindex="-1">
 <div class="layout">
   <aside class="sidebar" id="sidebar">
     <div class="brand"><a class="logo" href="feed.html">Estud<b>aí!</b></a></div>
-    <nav class="side-nav">
+    <nav aria-label="Menu principal" class="side-nav">
       <a href="feed.html">Início / Feed</a>
       <a href="plataforma.html">Explorar materiais</a>
       <a href="plataforma.html#com">Explorar comunidades</a>
-      <a href="profile.html" class="active">Meu perfil</a>
+      <a href="profile.html" class="active" aria-current="page">Meu perfil</a>
       <a href="feedback.html">Feedback</a>
     </nav>
     <div class="side-foot">
@@ -88,7 +91,10 @@
   </div>
 </div>
 <div class="msg" id="msg" hidden></div>
+</main>
 <script type="module" src="js/pages/profile.js"></script>
 <script type="module" src="js/lib/cookie-consent.js"></script>
+<script type="module" src="js/lib/accessibility.js"></script>
+<script type="module" src="js/lib/vlibras.js"></script>
 </body>
 </html>

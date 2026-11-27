@@ -1,0 +1,244 @@
+/* Barra de acessibilidade própria do Estudaí! — estilos isolados */
+
+.a11y-trigger {
+  position: fixed;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 9990;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0;
+  border: 2px solid var(--line, #26356a);
+  border-radius: 12px;
+  background: var(--card, #111c42);
+  color: var(--fg, #f1f3fa);
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.a11y-trigger:hover,
+.a11y-trigger:focus-visible {
+  background: var(--pur2, #4b41a6);
+  border-color: var(--pur, #8479dc);
+  color: #fff;
+}
+
+.a11y-trigger svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.a11y-panel {
+  position: fixed;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 9991;
+  width: min(320px, calc(100vw - 24px));
+  max-height: min(80vh, 520px);
+  overflow-y: auto;
+  padding: 16px;
+  border: 1px solid var(--line, #26356a);
+  border-radius: 16px;
+  background: var(--panel, #0e1838);
+  color: var(--fg, #f1f3fa);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  font: 400 15px/1.5 Nunito, system-ui, sans-serif;
+}
+
+.a11y-panel[hidden] {
+  display: none !important;
+}
+
+.a11y-panel h2 {
+  margin: 0 0 4px;
+  font: 800 20px/1.2 "Baloo 2", Nunito, sans-serif;
+}
+
+.a11y-panel .a11y-desc {
+  margin: 0 0 14px;
+  color: var(--mut, #a9b3d1);
+  font-size: 13px;
+}
+
+.a11y-panel .a11y-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--mut, #a9b3d1);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.a11y-panel .a11y-close:hover,
+.a11y-panel .a11y-close:focus-visible {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.a11y-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.a11y-group legend,
+.a11y-label {
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.a11y-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.a11y-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--line, #26356a);
+  border-radius: 10px;
+  background: var(--card, #111c42);
+  color: var(--fg, #f1f3fa);
+  font: 600 14px Nunito, system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.a11y-btn:hover,
+.a11y-btn:focus-visible {
+  border-color: var(--pur, #8479dc);
+  background: rgba(132, 121, 220, 0.15);
+}
+
+.a11y-btn[aria-pressed="true"] {
+  background: var(--pur2, #4b41a6);
+  border-color: var(--pur, #8479dc);
+  color: #fff;
+}
+
+.a11y-reset {
+  width: 100%;
+  margin-top: 4px;
+  background: transparent;
+  border-style: dashed;
+}
+
+.a11y-link {
+  display: inline-block;
+  margin-top: 8px;
+  color: var(--yel, #fbb817);
+  font-size: 13px;
+  text-underline-offset: 3px;
+}
+
+/* Preferências aplicadas no documento */
+html.a11y-text-lg {
+  font-size: 112.5%;
+}
+html.a11y-text-xl {
+  font-size: 125%;
+}
+html.a11y-text-xxl {
+  font-size: 150%;
+}
+html.a11y-text-max {
+  font-size: 200%;
+}
+
+html.a11y-contrast {
+  --bg: #000;
+  --bar: #000;
+  --fg: #fff;
+  --mut: #e0e0e0;
+  --card: #111;
+  --panel: #0a0a0a;
+  --line: #fff;
+  --yel: #ff0;
+  --pur: #0ff;
+  --pur2: #00a;
+  --tab: #fff;
+  --ink: #000;
+  --err: #f66;
+  color-scheme: dark;
+}
+
+html.a11y-contrast body {
+  background: #000;
+  color: #fff;
+}
+
+html.a11y-links a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 2px;
+}
+
+html.a11y-spacing body,
+html.a11y-spacing p,
+html.a11y-spacing li,
+html.a11y-spacing label {
+  line-height: 1.9;
+  letter-spacing: 0.04em;
+  word-spacing: 0.12em;
+}
+
+html.a11y-readable body {
+  font-family: "Comic Sans MS", "Atkinson Hyperlegible", "OpenDyslexic", Nunito, system-ui, sans-serif !important;
+}
+
+html.a11y-reduce-motion *,
+html.a11y-reduce-motion *::before,
+html.a11y-reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Evitar sobreposição com cookie banner (canto inferior esquerdo) e VLibras (inferior direito) */
+@media (max-width: 480px) {
+  .a11y-trigger {
+    left: 8px;
+    top: auto;
+    bottom: 88px;
+    transform: none;
+  }
+
+  .a11y-panel {
+    left: 8px;
+    right: 8px;
+    top: auto;
+    bottom: 88px;
+    transform: none;
+    width: auto;
+    max-height: 60vh;
+  }
+}

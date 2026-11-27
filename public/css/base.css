@@ -121,3 +121,48 @@ summary::-webkit-details-marker {
   transition: 0.2s;
 }
 .card-material-chat:hover { border-color: var(--pur); }
+/* --- Acessibilidade nativa (WCAG) --- */
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 10000;
+  padding: 12px 18px;
+  background: var(--yel);
+  color: var(--ink);
+  font: 700 15px Nunito, system-ui, sans-serif;
+  border-radius: 10px;
+  text-decoration: none;
+  transform: translateY(-120%);
+  transition: transform 0.15s;
+}
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 3px solid var(--pur);
+  outline-offset: 2px;
+}
+
+/* Alvos de toque mínimos (44x44) em botões de ação comuns */
+.btn,
+.tab,
+.chip,
+.x,
+.attach-btn {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -14,14 +14,16 @@
 <link rel="stylesheet" href="css/cookies.css">
 </head>
 <body>
+<a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+
 <div class="top">
   <header>
     <a class="logo" href="index.html" aria-label="Estudaí! – início">Estud<b>aí!</b></a>
-    <nav><a href="index.html">Voltar ao início</a></nav>
+    <nav aria-label="Menu principal"><a href="index.html">Voltar ao início</a></nav>
   </header>
 </div>
 
-<main class="policy">
+<main id="conteudo" tabindex="-1" class="policy">
   <h1>Política de Cookies</h1>
   <span class="ul"></span>
   <p class="upd">Última atualização: 27 de novembro de 2026</p>
@@ -84,6 +86,12 @@
           <td data-label="Categoria">Estritamente necessário</td>
           <td data-label="Duração">12 meses, ou até a política mudar de forma relevante.</td>
         </tr>
+        <tr>
+          <td data-label="Nome"><code>estudai_a11y</code></td>
+          <td data-label="Finalidade">Guarda as preferências de acessibilidade que você escolheu na barra própria do site (tamanho do texto, contraste, espaçamento etc.). Fica no armazenamento local (<em>localStorage</em>) e não é enviado ao nosso servidor.</td>
+          <td data-label="Categoria">Preferência escolhida pelo usuário</td>
+          <td data-label="Duração">Até a pessoa apagar os dados do site no navegador.</td>
+        </tr>
       </tbody>
     </table>
   </div>
@@ -95,6 +103,7 @@
     <li><strong>Google Fonts</strong> (<code>fonts.googleapis.com</code> e <code>fonts.gstatic.com</code>): fontes de texto das páginas. Veja a <a href="https://policies.google.com/privacy" rel="noopener noreferrer" target="_blank">política de privacidade do Google</a>.</li>
     <li><strong>Supabase</strong> (<code>*.supabase.co</code>): armazenamento dos arquivos que você envia na plataforma. Veja a <a href="https://supabase.com/privacy" rel="noopener noreferrer" target="_blank">política de privacidade do Supabase</a>.</li>
     <li><strong>esm.sh</strong>: rede de distribuição que entrega uma biblioteca de código usada na plataforma.</li>
+    <li><strong>VLibras</strong> (<code>vlibras.gov.br</code> e, por redirecionamento, <code>cdn.jsdelivr.net</code>): widget oficial do governo brasileiro para tradução em Libras. O texto selecionado para tradução é enviado ao serviço do governo; não usamos para publicidade. Veja mais em <a href="https://www.gov.br/governodigital/pt-br/acessibilidade-e-usuario/vlibras" rel="noopener noreferrer" target="_blank">gov.br/vlibras</a>.</li>
   </ul>
 
   <h2>Como gerenciar suas preferências</h2>
@@ -122,5 +131,7 @@
 </main>
 
 <script type="module" src="js/lib/cookie-consent.js"></script>
+<script type="module" src="js/lib/accessibility.js"></script>
+<script type="module" src="js/lib/vlibras.js"></script>
 </body>
 </html>

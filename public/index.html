@@ -43,10 +43,12 @@
   <link rel="stylesheet" href="css/home.css">
 </head>
 <body>
+<a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+
 <div class="top">
   <header>
     <a class="logo" href="index.html" aria-label="Estudaí! – início">Estud<b>aí!</b></a>
-    <nav>
+    <nav aria-label="Menu principal">
       <a href="#como-funciona">Como funciona</a>
       <a href="#recursos">Recursos</a>
       <a href="#beneficios">Benefícios</a>
@@ -55,6 +57,7 @@
       <a class="btn sm-nav" href="login.html?tab=up" data-guest-cta="nav">Criar conta</a>
     </nav>
   </header>
+<main id="conteudo" tabindex="-1">
 </div>
 
 <div class="w">
@@ -131,13 +134,16 @@
     </p>
   </section>
 
-  <footer>
+  </main>
+<footer>
     &copy; 2026 Estudaí!
     · <a href="politica-de-cookies.html">Política de cookies</a>
   </footer>
 </div>
 
 <script type="module" src="js/lib/cookie-consent.js"></script>
+<script type="module" src="js/lib/accessibility.js"></script>
+<script type="module" src="js/lib/vlibras.js"></script>
 <script type="module" src="js/pages/home.js"></script>
 </body>
 </html>
