@@ -607,3 +607,8 @@ body.sidebar-open{overflow:hidden}
 .avatar-edit{display:flex;align-items:center;gap:16px;margin-bottom:18px;flex-wrap:wrap}
 .avatar-edit .profile-av{width:72px;height:72px;font-size:24px;flex-shrink:0}
 .avatar-edit-actions{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+/* O botão "Escolher foto" é um <label class="btn">: sem isto a regra de label do formulário o desalinha */
+.content .edit-form label.btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  margin:0;text-align:center;line-height:1.2;
+}

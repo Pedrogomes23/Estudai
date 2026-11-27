@@ -31,6 +31,17 @@
  */
 export const RELEASES = [
   // A mais nova fica no topo.
+  {
+    id: '2026-11-27-foto-de-perfil',
+    summary: 'Agora você pode colocar e trocar sua foto de perfil.',
+    title: 'Foto de perfil',
+    description: 'Deixe o Estudaí com a sua cara! Agora seu perfil pode ter uma foto.',
+    items: [
+      'Escolha uma foto em JPEG, PNG, WebP ou GIF de até 4 MB.',
+      'Troque a foto quando quiser, direto na página do seu perfil.',
+      'Prefere voltar às iniciais? É só remover a foto.',
+    ],
+  },
 ];
 
 const clean = (value, max) => String(value ?? '').trim().slice(0, max);
