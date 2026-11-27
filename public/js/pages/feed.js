@@ -65,6 +65,7 @@ async function boot() {
       .then(renderNotifications);
 
     await Promise.all([activitiesPromise, notificationsPromise]);
+    startNotificationPolling();
 
     // Links vindos de outras páginas (#my-files, #my-downloads, etc.)
     const hash = (location.hash || '').replace('#', '');
@@ -242,6 +243,7 @@ let unreadCount = 0;
 /** Atualiza o número vermelho do sininho. */
 function setUnread(value) {
   unreadCount = Math.max(0, value);
+  knownUnread = unreadCount; // mantém a checagem automática em sincronia
   const badge = $('notif-badge');
   if (unreadCount > 0) {
     badge.hidden = false;
@@ -251,8 +253,50 @@ function setUnread(value) {
   }
 }
 
+// ---- Atualização automática do sininho ----
+const NOTIF_POLL_MS = 15000;
+let knownLatestId = null;
+let knownUnread = null;
+let notifPolling = false;
+
+/** Pergunta ao servidor (de forma leve) se chegou notificação nova e, se sim, atualiza o sininho. */
+async function pollNotifications() {
+  if (notifPolling || document.hidden) return;
+  notifPolling = true;
+  try {
+    const s = await api.notifications.summary();
+    const changed = s.latestId !== knownLatestId || s.unread !== knownUnread;
+    if (changed) {
+      const data = await api.notifications.list();
+      const hadNew = knownLatestId !== null && data.items?.some((n) => n.id > knownLatestId && !n.read);
+      renderNotifications(data);
+      if (hadNew) {
+        const bell = $('btn-notif');
+        bell?.classList.remove('notif-ping');
+        void bell?.offsetWidth; // reinicia a animação
+        bell?.classList.add('notif-ping');
+      }
+    }
+  } catch {
+    /* rede instável ou sessão expirada: tenta de novo no próximo ciclo */
+  } finally {
+    notifPolling = false;
+  }
+}
+
+function startNotificationPolling() {
+  setInterval(pollNotifications, NOTIF_POLL_MS);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) pollNotifications();
+  });
+  window.addEventListener('focus', pollNotifications);
+  window.addEventListener('online', pollNotifications);
+}
+
 function renderNotifications(data) {
   const list = $('notif-list');
+  knownLatestId = (data.items || []).reduce((m, n) => Math.max(m, Number(n.id) || 0), knownLatestId || 0);
+  knownUnread = data.unread || 0;
   setUnread(data.unread || 0);
   if (!data.items?.length) {
     list.innerHTML = '<div class="empty" style="padding:16px">Nenhuma notificação.</div>';
@@ -532,7 +576,7 @@ document.addEventListener('click', (e) => {
       });
     }
     // Atualização do site: abre balãozinho com a mensagem completa
-    if (notifItem.dataset.type === 'site_update') {
+    if (notifItem.dataset.type === 'site_update' || notifItem.dataset.type === 'welcome') {
       const { title, body, link } = notifItem.dataset;
       $('notif-panel').hidden = true;
       if (link?.startsWith('release:')) {

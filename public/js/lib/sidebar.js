@@ -135,14 +135,7 @@ export function initSidebar({ active = 'feed', user = null, isAdmin = false } = 
   sidebar.innerHTML = buildSidebarHtml(active, admin);
   sidebar.dataset.active = active;
 
-  if (user) {
-    const av = document.getElementById('side-av');
-    const name = document.getElementById('side-name');
-    const email = document.getElementById('side-email');
-    if (av) av.textContent = initials(user.name);
-    if (name) name.textContent = user.name || '…';
-    if (email) email.textContent = user.email || '';
-  }
+  if (user) paintSidebarUser(user);
 
   // Botão hambúrguer
   document.querySelectorAll('#menu-toggle, .menu-toggle').forEach((btn) => {
@@ -183,10 +176,44 @@ export function initSidebar({ active = 'feed', user = null, isAdmin = false } = 
   return { openSidebar, closeSidebar, sidebar };
 }
 
+let avatarPromise = null;
+
+// /api/auth/me não devolve a foto; só /api/profile/me devolve (URL assinada).
+// Busca uma vez por página e reaproveita.
+function fetchAvatarUrl() {
+  if (!avatarPromise) {
+    avatarPromise = api.profile
+      .me()
+      .then((r) => r?.user?.avatarUrl || null)
+      .catch(() => null);
+  }
+  return avatarPromise;
+}
+
+function paintSidebarUser(user) {
+  const av = document.getElementById('side-av');
+  const name = document.getElementById('side-name');
+  const email = document.getElementById('side-email');
+  if (av) {
+    if (user.avatarUrl) {
+      av.classList.add('has-photo');
+      const img = document.createElement('img');
+      img.src = user.avatarUrl;
+      img.alt = '';
+      av.replaceChildren(img);
+    } else {
+      av.classList.remove('has-photo');
+      av.textContent = initials(user.name);
+    }
+  }
+  if (name) name.textContent = user.name || '…';
+  if (email) email.textContent = user.email || '';
+}
+
 export function setSidebarUser(user) {
   if (!user) return;
   const sidebar = document.getElementById('sidebar');
-  if (sidebar && user.isAdmin) {
+  if (sidebar && user.isAdmin && !sidebar.querySelector('[data-nav="dashboard"]')) {
     const active = sidebar.dataset.active || 'feed';
     sidebar.innerHTML = buildSidebarHtml(active, true);
     // re-bind logout after rebuild
@@ -200,18 +227,12 @@ export function setSidebarUser(user) {
       });
     });
   }
-  const av = document.getElementById('side-av');
-  const name = document.getElementById('side-name');
-  const email = document.getElementById('side-email');
-  if (av) {
-    if (user.avatarUrl) {
-      av.classList.add('has-photo');
-      av.innerHTML = '<img src="' + String(user.avatarUrl).replace(/"/g, '&quot;') + '" alt="">';
-    } else {
-      av.classList.remove('has-photo');
-      av.textContent = initials(user.name);
-    }
+  paintSidebarUser(user);
+
+  // Páginas que usam auth.me() não trazem avatarUrl: completa buscando no perfil.
+  if (user.avatarUrl === undefined) {
+    fetchAvatarUrl().then((avatarUrl) => {
+      if (avatarUrl) paintSidebarUser({ ...user, avatarUrl });
+    });
   }
-  if (name) name.textContent = user.name || '…';
-  if (email) email.textContent = user.email || '';
 }

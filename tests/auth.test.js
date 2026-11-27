@@ -62,6 +62,30 @@ describe('autenticação', () => {
       reason: 'USED',
     });
   });
+  it('cria a notificação de boas-vindas ao confirmar o e-mail (uma única vez)', async () => {
+    const row = await srv.db.get(
+      `SELECT COUNT(*)::int AS n FROM notifications n
+         JOIN users u ON u.id = n.user_id
+        WHERE u.email = $1 AND n.type = 'welcome'`,
+      [user.email],
+    );
+    assert.equal(row.n, 1);
+
+    const client = srv.client();
+    const login = await client.post('/api/auth/login', { email: user.email, password: user.password });
+    assert.equal(login.status, 200);
+
+    const list = await client.get('/api/notifications');
+    assert.equal(list.status, 200);
+    assert.equal(list.data.items[0].type, 'welcome');
+    assert.equal(list.data.unread, 1);
+
+    const summary = await client.get('/api/notifications/summary');
+    assert.equal(summary.status, 200);
+    assert.equal(summary.data.unread, 1);
+    assert.equal(summary.data.latestId, list.data.items[0].id);
+  });
+
   it('guarda apenas o hash scrypt da senha', async () => {
     const row = await srv.db.get('SELECT password_hash FROM users WHERE email = $1', [user.email]);
     assert.match(row.password_hash, /^scrypt\$/);

@@ -35,6 +35,19 @@ export function notificationsRouter({ db }) {
     });
   });
 
+  /** Resumo leve para o navegador checar de tempos em tempos se chegou algo novo. */
+  router.get('/summary', async (req, res) => {
+    const row = await db.get(
+      `SELECT COUNT(*) FILTER (WHERE read_at IS NULL)::int AS unread,
+              COALESCE(MAX(id), 0)::int AS latest_id
+         FROM notifications
+        WHERE user_id = $1`,
+      [req.user.id],
+    );
+    res.set('Cache-Control', 'no-store');
+    res.json({ unread: row?.unread ?? 0, latestId: row?.latest_id ?? 0 });
+  });
+
   /** Detalhes de uma notificação de novidade (texto completo do balão). */
   router.get('/:id/release', async (req, res) => {
     const id = parseId(req.params.id);

@@ -222,17 +222,27 @@ body:has(#sidebar #a11y-trigger) .a11y-trigger:not(.a11y-side-btn) {
 }
 
 /* Preferências aplicadas no documento */
-html.a11y-text-lg {
-  font-size: 112.5%;
+/* Tamanho do texto.
+   O site usa px em quase tudo, então mudar o font-size do <html> não faz efeito.
+   Por isso usamos "zoom" no conteúdo (não no painel de acessibilidade). */
+html.a11y-text-lg { --a11y-z: 1.125; }
+html.a11y-text-xl { --a11y-z: 1.25; }
+html.a11y-text-xxl { --a11y-z: 1.5; }
+html.a11y-text-max { --a11y-z: 2; }
+
+/* Páginas sem barra lateral (início, login, etc.): amplia o conteúdo */
+html[class*="a11y-text-"] body > :not(script):not(style):not(link):not(.a11y-panel):not(.a11y-trigger):not([vw]):not(.sidebar-backdrop):not(main:has(.layout)) {
+  zoom: var(--a11y-z);
 }
-html.a11y-text-xl {
-  font-size: 125%;
+
+/* Páginas com barra lateral: amplia a área principal e o menu (menu com metade do aumento, por causa da largura fixa) */
+html[class*="a11y-text-"] .layout > .main {
+  zoom: var(--a11y-z);
 }
-html.a11y-text-xxl {
-  font-size: 150%;
-}
-html.a11y-text-max {
-  font-size: 200%;
+html[class*="a11y-text-"] .sidebar .side-nav,
+html[class*="a11y-text-"] .sidebar .side-foot,
+html[class*="a11y-text-"] .sidebar .brand {
+  zoom: calc(1 + (var(--a11y-z) - 1) / 2);
 }
 
 html.a11y-contrast {

@@ -11,6 +11,9 @@ import { createMailer } from '../lib/mail.js';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
+const WELCOME_TITLE = 'Bem-vindo(a) ao Estudaí! 🎉';
+const WELCOME_BODY =
+  'Que bom ter você aqui! Explore materiais, entre em comunidades de estudo, compartilhe seus resumos e converse com a Klyra IA. Qualquer dúvida, é só chamar pelo Feedback. Bons estudos!';
 
 const publicUser = ({ id, name, email, bio, is_admin, created_at }) => ({
   id,
@@ -240,6 +243,16 @@ export function authRouter({ db, config, sessions, mailer: injectedMailer }) {
       await tx.run('DELETE FROM email_verification_tokens WHERE user_id = $1 AND used_at IS NULL', [
         consumed.user_id,
       ]);
+
+      // Primeira notificação da conta: boas-vindas (só uma vez por usuário).
+      await tx.run(
+        `INSERT INTO notifications (user_id, type, title, body, link)
+         SELECT $1::int, 'welcome', $2::text, $3::text, NULL
+          WHERE NOT EXISTS (
+            SELECT 1 FROM notifications WHERE user_id = $1::int AND type = 'welcome'
+          )`,
+        [consumed.user_id, WELCOME_TITLE, WELCOME_BODY],
+      );
     });
 
     res.json({ message: 'E-mail confirmado com sucesso. Você já pode entrar.' });

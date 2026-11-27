@@ -1,6 +1,6 @@
 import { api, ApiError } from '../lib/api.js';
 import { confirmDialog } from '../lib/confirm-dialog.js';
-import { initSidebar } from '../lib/sidebar.js';
+import { initSidebar, setSidebarUser } from '../lib/sidebar.js';
 import { $ } from '../lib/dom.js';
 
 let currentConversationId = null;
@@ -694,6 +694,7 @@ async function init() {
   }
 
   initSidebar({ active: 'klyra', user, isAdmin: Boolean(user.isAdmin) });
+  setSidebarUser(user);
 
   try {
     const limits = await api.ai.limits();

@@ -3,8 +3,8 @@
 .klyra-layout {
   display: grid;
   grid-template-columns: 280px 1fr;
-  height: calc(100vh - 64px);
-  max-height: calc(100dvh - 64px);
+  height: calc(100vh / var(--a11y-z, 1) - 64px);
+  max-height: calc(100dvh / var(--a11y-z, 1) - 64px);
   border-top: 1px solid var(--line);
 }
 
@@ -538,8 +538,8 @@
   /* Tela de chat com altura fixa: só as mensagens rolam e o campo de digitar
      fica sempre visível, colado no fim da tela. */
   .klyra-layout {
-    height: calc(100vh - var(--topbar-h, 65px));
-    height: calc(100dvh - var(--topbar-h, 65px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    height: calc(100vh / var(--a11y-z, 1) - var(--topbar-h, 65px));
+    height: calc(100dvh / var(--a11y-z, 1) - var(--topbar-h, 65px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     min-height: 0;
     max-height: none;
     grid-template-columns: minmax(0, 1fr); /* sem isso, uma linha de código longa alarga a página toda */

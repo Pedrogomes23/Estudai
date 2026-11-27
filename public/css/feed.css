@@ -628,3 +628,62 @@ body.sidebar-open{overflow:hidden}
   .avatar-edit-actions{align-items:center;width:100%}
   .avatar-edit-actions .btn{min-height:44px}
 }
+
+/* ==========================================================
+   Sidebar em telas de POUCA ALTURA (notebooks menores, janelas baixas)
+   - Menu rola na vertical com barra de rolagem visível
+   - Sombras no topo/rodapé do menu indicam que há mais itens
+   - Espaçamentos compactos para caber mais itens sem rolar
+   ========================================================== */
+.side-nav {
+  scrollbar-width: thin;
+  scrollbar-color: var(--pur2) transparent;
+  overscroll-behavior: contain;
+  /* sombra que aparece só quando há conteúdo escondido (cima/baixo) */
+  background:
+    linear-gradient(var(--bar) 30%, rgba(0, 0, 0, 0)) center top / 100% 28px no-repeat local,
+    linear-gradient(rgba(0, 0, 0, 0), var(--bar) 70%) center bottom / 100% 28px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, rgba(132, 121, 220, .45), rgba(0, 0, 0, 0)) center top / 100% 10px no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, rgba(132, 121, 220, .45), rgba(0, 0, 0, 0)) center bottom / 100% 10px no-repeat scroll;
+}
+.side-nav::-webkit-scrollbar { width: 8px; }
+.side-nav::-webkit-scrollbar-track { background: transparent; }
+.side-nav::-webkit-scrollbar-thumb { background: var(--pur2); border-radius: 8px; }
+.side-nav::-webkit-scrollbar-thumb:hover { background: var(--pur); }
+
+@media (max-height: 860px) {
+  .sidebar .brand { padding: 12px 18px 6px; }
+  .side-nav { padding: 6px 10px; gap: 1px; }
+  .side-nav a, .side-nav button { padding: 8px 12px; font-size: 14px; gap: 10px; }
+  .side-foot { padding: 8px 10px; }
+  .side-foot .a11y-side-btn { padding: 8px 12px; font-size: 14px; }
+  .side-user { padding: 4px 8px; }
+  .side-user .av { width: 34px; height: 34px; font-size: 12px; }
+}
+@media (max-height: 860px) and (min-width: 521px) {
+  .side-foot [data-logout] {
+    margin-top: 2px !important;
+    padding: 4px 8px !important;
+  }
+}
+
+@media (max-height: 640px) {
+  .sidebar .brand { padding: 8px 16px 4px; }
+  .side-nav a, .side-nav button { padding: 6px 12px; font-size: 13.5px; }
+  .side-user .meta span { display: none; } /* esconde o e-mail para sobrar espaço */
+  .side-foot .a11y-side-btn { padding: 6px 12px; }
+}
+
+/* Sininho balança quando chega notificação nova (atualização automática) */
+@keyframes notif-ping {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(14deg); }
+  30% { transform: rotate(-12deg); }
+  45% { transform: rotate(9deg); }
+  60% { transform: rotate(-6deg); }
+  75% { transform: rotate(3deg); }
+}
+.icon-btn.notif-ping svg { animation: notif-ping .8s ease-in-out; transform-origin: 50% 10%; }
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn.notif-ping svg { animation: none; }
+}
