@@ -231,26 +231,79 @@ function openPanel() {
   panel.querySelector('button, a')?.focus();
 }
 
-async function init() {
-  await loadStyles();
-
-  if (document.getElementById('a11y-trigger')) return;
-
-  trigger = el('button', 'a11y-trigger');
-  trigger.id = 'a11y-trigger';
-  trigger.type = 'button';
-  trigger.setAttribute('aria-label', 'Abrir opções de acessibilidade');
-  trigger.setAttribute('aria-haspopup', 'dialog');
-  trigger.setAttribute('aria-controls', 'a11y-panel');
-  trigger.append(iconPerson());
-  trigger.addEventListener('click', () => {
+function bindTrigger(btn) {
+  if (!btn || btn.dataset.a11yBound) return;
+  btn.dataset.a11yBound = '1';
+  btn.addEventListener('click', () => {
     if (panel && !panel.hidden) closePanel();
     else openPanel();
   });
-  document.body.append(trigger);
+  trigger = btn;
+}
+
+async function init() {
+  await loadStyles();
 
   // Preferências já aplicadas no topo do módulo; reaplicar após possíveis mudanças de tema
   applyPrefs(prefs);
+
+  function tryBindOrFallback() {
+    const existing = document.getElementById('a11y-trigger');
+    if (existing) {
+      // Remove flutuante residual se a sidebar já criou o botão
+      document.querySelectorAll('body > .a11y-trigger:not(.a11y-side-btn)').forEach((n) => n.remove());
+      bindTrigger(existing);
+      return true;
+    }
+    return false;
+  }
+
+  if (!tryBindOrFallback()) {
+    // Sidebar ainda não montou: observa o DOM e, se após um tempo não aparecer, cria flutuante
+    const mo = new MutationObserver(() => {
+      if (tryBindOrFallback()) mo.disconnect();
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+
+    // Timeout de segurança: se em 2s não houver botão da sidebar, usa flutuante
+    setTimeout(() => {
+      if (tryBindOrFallback()) {
+        mo.disconnect();
+        return;
+      }
+      mo.disconnect();
+      if (document.getElementById('a11y-trigger')) return;
+      trigger = el('button', 'a11y-trigger');
+      trigger.id = 'a11y-trigger';
+      trigger.type = 'button';
+      trigger.setAttribute('aria-label', 'Abrir opções de acessibilidade');
+      trigger.setAttribute('aria-haspopup', 'dialog');
+      trigger.setAttribute('aria-controls', 'a11y-panel');
+      trigger.append(iconPerson());
+      bindTrigger(trigger);
+      document.body.append(trigger);
+    }, 2000);
+  }
+
+  // Continua observando a sidebar para re-bind após rebuild (admin / setSidebarUser)
+  const watchSidebar = () => {
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar) return;
+    const mo2 = new MutationObserver(() => {
+      const btn = document.getElementById('a11y-trigger');
+      if (btn) bindTrigger(btn);
+    });
+    mo2.observe(sidebar, { childList: true, subtree: true });
+  };
+  watchSidebar();
+  // Sidebar pode ser criada depois
+  const bodyMo = new MutationObserver(() => {
+    if (document.getElementById('sidebar')) {
+      watchSidebar();
+      bodyMo.disconnect();
+    }
+  });
+  bodyMo.observe(document.body, { childList: true });
 
   // Link no rodapé (como o cookie-consent)
   for (const footer of document.querySelectorAll('footer, .afoot')) {

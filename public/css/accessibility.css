@@ -1,10 +1,55 @@
 /* Barra de acessibilidade própria do Estudaí! — estilos isolados */
 
+/* ---------- Botão DENTRO da sidebar (preferido) ---------- */
+/* Fica no .side-foot, entre a linha divisória (após Feedback/Dashboard)
+   e o bloco do usuário — sempre visível no mobile, sem rolar o menu. */
+.side-foot .a11y-side-btn,
+.a11y-side-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  color: var(--mut, #a9b3d1);
+  text-decoration: none;
+  font: 600 15px Nunito, sans-serif;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  margin: 0 0 10px;
+  flex-shrink: 0;
+}
+
+.side-foot .a11y-side-btn:hover,
+.side-foot .a11y-side-btn:focus-visible,
+.a11y-side-btn:hover,
+.a11y-side-btn:focus-visible {
+  background: rgba(132, 121, 220, 0.15);
+  color: #fff;
+}
+
+.side-foot .a11y-side-btn svg,
+.a11y-side-btn svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+
+/* ---------- Botão flutuante (fallback: páginas sem sidebar) ---------- */
 .a11y-trigger {
   position: fixed;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
+  left: 16px;
+  right: auto;
+  bottom: 96px;
+  top: auto;
+  transform: none;
   z-index: 9990;
   display: flex;
   align-items: center;
@@ -40,14 +85,22 @@
   stroke-linejoin: round;
 }
 
+/* Se o botão da sidebar existir, esconde qualquer flutuante residual */
+body:has(#sidebar #a11y-trigger) .a11y-trigger:not(.a11y-side-btn) {
+  display: none !important;
+}
+
+/* ---------- Painel ---------- */
 .a11y-panel {
   position: fixed;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
+  left: 16px;
+  right: auto;
+  bottom: 156px;
+  top: auto;
+  transform: none;
   z-index: 9991;
-  width: min(320px, calc(100vw - 24px));
-  max-height: min(80vh, 520px);
+  width: min(320px, calc(100vw - 32px));
+  max-height: min(70vh, 480px);
   overflow-y: auto;
   padding: 16px;
   border: 1px solid var(--line, #26356a);
@@ -56,6 +109,15 @@
   color: var(--fg, #f1f3fa);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   font: 400 15px/1.5 Nunito, system-ui, sans-serif;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Em desktop com sidebar aberta, afasta o painel da sidebar (260px) */
+@media (min-width: 901px) {
+  body:has(.sidebar) .a11y-panel {
+    left: 276px;
+  }
 }
 
 .a11y-panel[hidden] {
@@ -223,22 +285,45 @@ html.a11y-reduce-motion *::after {
   scroll-behavior: auto !important;
 }
 
-/* Evitar sobreposição com cookie banner (canto inferior esquerdo) e VLibras (inferior direito) */
+/* ---------- VLibras: sobe o botão para não cobrir barras inferiores ---------- */
+div[vw] [vw-access-button],
+div[vw] .vw-access-button,
+[vw-access-button],
+.vw-access-button {
+  bottom: 72px !important;
+}
+
+/* Na Klyra o composer ocupa a base da tela: sobe ainda mais */
+body:has(.klyra-composer) div[vw] [vw-access-button],
+body:has(.klyra-composer) [vw-access-button] {
+  bottom: 110px !important;
+}
+
+/* Celular: painel e botão flutuante (fallback) */
 @media (max-width: 480px) {
   .a11y-trigger {
-    left: 8px;
-    top: auto;
-    bottom: 88px;
-    transform: none;
+    left: 12px;
+    right: auto;
+    bottom: 96px;
   }
 
   .a11y-panel {
-    left: 8px;
-    right: 8px;
-    top: auto;
-    bottom: 88px;
-    transform: none;
+    left: 12px;
+    right: 12px;
+    bottom: 156px;
     width: auto;
-    max-height: 60vh;
+    max-height: 50vh;
+  }
+
+  body:has(.klyra-composer) div[vw] [vw-access-button],
+  body:has(.klyra-composer) [vw-access-button] {
+    bottom: 120px !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .a11y-panel {
+    bottom: 140px;
+    max-height: 45vh;
   }
 }
