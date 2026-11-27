@@ -211,10 +211,18 @@ async function start() {
   try {
     initSidebar({ active: 'settings' });
     const me = await api.auth.me();
-    // Admin não envia feedback — avaliações ficam no Dashboard.
-    if (me.isAdmin) return location.replace('admin.html');
     setSidebarUser(me);
     $('hi').textContent = `Olá, ${me.name || 'estudante'}`;
+    // Admin não envia feedback — avaliações ficam no Dashboard.
+    // Em vez de redirecionar (o que "pulava" a página), mostra um aviso com link.
+    if (me.isAdmin) {
+      const form = $('f-feedback');
+      const note = document.createElement('p');
+      note.className = 'admin-note';
+      note.innerHTML = 'Contas administrativas não enviam feedback. Veja as avaliações no <a href="admin.html">Dashboard</a>.';
+      form?.replaceWith(note);
+      return;
+    }
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) return location.replace('login.html');
     return say('Não foi possível conectar ao servidor.');

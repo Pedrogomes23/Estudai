@@ -89,3 +89,5 @@ nav a[aria-current=page]{color:#fff;font-weight:700}
 @media (max-width: 520px) {
   .mine .list { grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); }
 }
+.admin-note{padding:24px;text-align:center;color:var(--muted,#a9b2d0);line-height:1.6}
+.admin-note a{color:var(--yel,#f5b400);font-weight:700;text-decoration:underline}

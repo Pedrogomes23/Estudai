@@ -1,6 +1,6 @@
 import { ApiError, api } from '../lib/api.js';
 import { $, escapeHtml, ICON_DOWNLOAD } from '../lib/dom.js';
-import { initSidebar } from '../lib/sidebar.js';
+import { initSidebar, setSidebarUser } from '../lib/sidebar.js';
 
 function initials(name) {
   return String(name || '?')
@@ -43,6 +43,8 @@ async function boot() {
     const [profile, materials] = await Promise.all([api.profile.me(), api.materials.list({ mine: '1' })]);
     const u = profile.user;
     const s = profile.stats;
+    // Reconstrói a sidebar com o botão Dashboard quando a conta é admin.
+    setSidebarUser(u);
 
     $('prof-name').textContent = u.name;
     $('prof-email').textContent = u.email;

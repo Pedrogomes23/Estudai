@@ -693,7 +693,7 @@ async function init() {
     return;
   }
 
-  initSidebar({ active: 'klyra', user, isAdmin: !!user.is_admin });
+  initSidebar({ active: 'klyra', user, isAdmin: Boolean(user.isAdmin) });
 
   try {
     const limits = await api.ai.limits();
