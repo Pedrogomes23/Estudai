@@ -55,12 +55,31 @@ const query = (params) => {
   return text ? `?${text}` : '';
 };
 
+// Dados de exibição do menu lateral (nome, e-mail, foto) guardados só nesta aba.
+// Limpamos ao entrar e ao sair para nunca mostrar a pessoa errada.
+const clearSidebarCache = () => {
+  try {
+    sessionStorage.removeItem('estudai:sidebar-user');
+  } catch {
+    /* ignore */
+  }
+};
+
 export const api = {
   auth: {
     me: () => request('GET', '/api/auth/me').then((r) => r.user),
-    login: (data) => request('POST', '/api/auth/login', { json: data }).then((r) => r.user),
-    register: (data) => request('POST', '/api/auth/register', { json: data }).then((r) => r.user),
-    logout: () => request('POST', '/api/auth/logout'),
+    login: (data) => {
+      clearSidebarCache();
+      return request('POST', '/api/auth/login', { json: data }).then((r) => r.user);
+    },
+    register: (data) => {
+      clearSidebarCache();
+      return request('POST', '/api/auth/register', { json: data }).then((r) => r.user);
+    },
+    logout: () => {
+      clearSidebarCache();
+      return request('POST', '/api/auth/logout');
+    },
     forgotPassword: (data) => request('POST', '/api/auth/forgot-password', { json: data }),
     validateResetToken: (token) =>
       request('GET', `/api/auth/reset-password/validate?token=${encodeURIComponent(token)}`),

@@ -40,6 +40,12 @@ async function boot() {
   initSidebar({ active: 'feed' });
 
   try {
+    // Tudo sai ao mesmo tempo (antes: 2 pedidos e, só depois, mais 2 em fila = mais espera).
+    const activitiesReq = api.profile.activities().catch(() => []);
+    const notificationsReq = api.notifications
+      .list()
+      .catch(() => ({ items: [], unread: 0 }));
+
     const [profile, materials] = await Promise.all([
       api.profile.me(),
       api.materials.list({ sort: 'recent' }),
@@ -48,28 +54,21 @@ async function boot() {
     state.me = profile.user;
     state.stats = profile.stats;
     state.materials = materials.items || [];
+    cacheSet(materialsKey({ q: '', category: '', area: '', sort: 'recent' }), state.materials);
 
     renderUser();
     renderStats();
     renderFeed();
 
-    // Dados secundários carregam sem bloquear a exibição do feed principal.
-    const activitiesPromise = api.profile
-      .activities()
-      .catch(() => [])
-      .then(renderActivities);
-
-    const notificationsPromise = api.notifications
-      .list()
-      .catch(() => ({ items: [], unread: 0 }))
-      .then(renderNotifications);
-
-    await Promise.all([activitiesPromise, notificationsPromise]);
+    await Promise.all([
+      activitiesReq.then(renderActivities),
+      notificationsReq.then(renderNotifications),
+    ]);
     startNotificationPolling();
 
     // Links vindos de outras páginas (#my-files, #my-downloads, etc.)
     const hash = (location.hash || '').replace('#', '');
-    if (hash && ['my-files', 'my-downloads', 'my-communities', 'admin-communities'].includes(hash)) {
+    if (hash && IN_PAGE_VIEWS.has(hash) && hash !== 'feed') {
       const link = document.querySelector(`[data-nav="${hash}"]`);
       link?.click();
     }
@@ -367,56 +366,129 @@ function openNotifModal(title, body, items = []) {
 
 /* ---------- Actions ---------- */
 
-async function loadMaterials() {
-  try {
-    const filters = {
-      q: $('q').value.trim(),
-      category: $('cat').value,
-      area: $('area')?.value || '',
-      sort: state.sort,
+/* ---------- Cache por tela (mostra na hora e atualiza em segundo plano) ---------- */
+
+const IN_PAGE_VIEWS = new Set(['feed', 'my-files', 'my-downloads', 'my-communities', 'admin-communities']);
+const CACHE_FRESH_MS = 20_000; // até 20s: usa direto, sem nova ida ao servidor
+const CACHE_MAX_ENTRIES = 40;
+const viewCache = new Map();
+let requestSeq = 0; // descarta respostas atrasadas de uma tela que a pessoa já deixou
+
+function cacheSet(key, data) {
+  viewCache.delete(key);
+  viewCache.set(key, { at: Date.now(), data });
+  if (viewCache.size > CACHE_MAX_ENTRIES) viewCache.delete(viewCache.keys().next().value);
+}
+
+const materialsKey = (f) => `m:${f.q || ''}|${f.category || ''}|${f.area || ''}|${f.sort || ''}|${f.mine || ''}`;
+
+function materialFilters(view = state.view) {
+  const filters = {
+    q: $('q').value.trim(),
+    category: $('cat').value,
+    area: $('area')?.value || '',
+    sort: state.sort,
+  };
+  if (view === 'my-files') filters.mine = '1';
+  return filters;
+}
+
+const fetchMaterials = (filters) => api.materials.list(filters).then((d) => d.items || []);
+const fetchCommunities = (joinedOnly, mineOnly) =>
+  api.communities
+    .list({ joined: joinedOnly ? '1' : undefined })
+    .then((items) => (mineOnly ? items.filter((c) => c.mine) : items));
+
+function applyMaterials(items) {
+  state.materials = items;
+  renderFeed();
+}
+
+/** Descreve de onde vêm os dados de cada tela. */
+function sourceFor(view) {
+  if (view === 'my-downloads') {
+    return {
+      key: 'downloads',
+      fetch: () => api.materials.myDownloads(),
+      apply: applyMaterials,
+      error: 'Erro ao carregar downloads.',
     };
-    if (state.view === 'my-files') filters.mine = '1';
-    const data = await api.materials.list(filters);
-    state.materials = data.items || [];
-    renderFeed();
+  }
+  if (view === 'communities' || view === 'my-communities' || view === 'admin-communities') {
+    const joinedOnly = view === 'my-communities';
+    const mineOnly = view === 'admin-communities';
+    return {
+      key: `c:${joinedOnly ? 1 : 0}:${mineOnly ? 1 : 0}`,
+      fetch: () => fetchCommunities(joinedOnly, mineOnly),
+      apply: (items) => renderCommunities(items, mineOnly),
+      error: 'Erro ao carregar comunidades.',
+    };
+  }
+  const filters = materialFilters(view);
+  return {
+    key: materialsKey(filters),
+    fetch: () => fetchMaterials(filters),
+    apply: applyMaterials,
+    error: 'Erro ao carregar materiais.',
+  };
+}
+
+function showSkeleton() {
+  $('feed-list').innerHTML = '<div class="skeleton"></div>'.repeat(3);
+}
+
+/** Mostra o que já temos na hora; busca de novo só se estiver velho. */
+async function showView(view) {
+  const src = sourceFor(view);
+  const seq = ++requestSeq;
+  const hit = viewCache.get(src.key);
+
+  if (hit) src.apply(hit.data);
+  else showSkeleton();
+
+  if (hit && Date.now() - hit.at < CACHE_FRESH_MS) return;
+
+  try {
+    const data = await src.fetch();
+    cacheSet(src.key, data);
+    if (seq === requestSeq) src.apply(data);
   } catch (err) {
-    handleError(err, 'Erro ao carregar materiais.');
+    if (seq === requestSeq) handleError(err, src.error);
   }
 }
 
-async function loadMyDownloads() {
-  try {
-    const items = await api.materials.myDownloads();
-    state.materials = items;
-    renderFeed();
-  } catch (err) {
-    handleError(err, 'Erro ao carregar downloads.');
-  }
+/** Ao passar o mouse num item do menu, já busca os dados (quando clicar, aparece na hora). */
+const warming = new Set();
+function warmView(view) {
+  const src = sourceFor(view);
+  const hit = viewCache.get(src.key);
+  if ((hit && Date.now() - hit.at < CACHE_FRESH_MS) || warming.has(src.key)) return;
+  warming.add(src.key);
+  src
+    .fetch()
+    .then((data) => cacheSet(src.key, data))
+    .catch(() => {})
+    .finally(() => warming.delete(src.key));
 }
 
-async function loadCommunities(joinedOnly, mineOnly = false) {
-  try {
-    const items = await api.communities.list({
-      joined: joinedOnly ? '1' : undefined,
-    });
+const loadMaterials = () => showView(state.view);
 
-    const filteredItems = mineOnly ? items.filter((c) => c.mine) : items;
+function renderCommunities(items, mineOnly) {
+  const list = $('feed-list');
 
-    const list = $('feed-list');
+  if (!items.length) {
+    list.innerHTML = renderEmpty(
+      mineOnly
+        ? 'Você ainda não administra nenhuma comunidade.'
+        : 'Você ainda não participa de nenhuma comunidade.',
+      mineOnly ? '⚙' : '◎',
+    );
+    return;
+  }
 
-    if (!filteredItems.length) {
-      list.innerHTML = renderEmpty(
-        mineOnly
-          ? 'Você ainda não administra nenhuma comunidade.'
-          : 'Você ainda não participa de nenhuma comunidade.',
-        mineOnly ? '⚙' : '◎',
-      );
-      return;
-    }
-
-    list.innerHTML = filteredItems
-      .map(
-        (c) => `
+  list.innerHTML = items
+    .map(
+      (c) => `
       <article class="community-card ${mineOnly ? 'community-card-admin' : 'community-card-member'}">
         <div class="community-card-top">
           <span class="community-symbol">${mineOnly ? '⚙' : '◎'}</span>
@@ -436,12 +508,10 @@ async function loadCommunities(joinedOnly, mineOnly = false) {
         </div>
       </article>
     `,
-      )
-      .join('');
-  } catch (err) {
-    handleError(err, 'Erro ao carregar comunidades.');
-  }
+    )
+    .join('');
 }
+
 async function downloadMaterial(id) {
   try {
     const item = state.materials.find((m) => m.id === id);
@@ -456,6 +526,7 @@ async function downloadMaterial(id) {
     link.remove();
     URL.revokeObjectURL(url);
     say('Download iniciado.');
+    viewCache.delete('downloads');
     if (state.stats) {
       state.stats.downloads = (state.stats.downloads || 0) + 1;
       renderStats();
@@ -469,6 +540,7 @@ async function deleteMaterial(id) {
   if (!confirm('Excluir este material?')) return;
   try {
     await api.materials.remove(id);
+    viewCache.clear();
     state.materials = state.materials.filter((m) => m.id !== id);
     renderFeed();
     say('Material excluído.');
@@ -495,17 +567,16 @@ document.addEventListener('click', (e) => {
     if (chip.dataset.sort) {
       state.sort = chip.dataset.sort;
       state.view = 'feed';
-      loadMaterials();
-    }
-    if (chip.dataset.view === 'for-you') {
+    } else if (chip.dataset.view === 'for-you') {
       state.view = 'for-you';
       state.sort = 'recent';
-      loadMaterials();
-    }
-    if (chip.dataset.view === 'communities') {
+    } else if (chip.dataset.view === 'communities') {
       state.view = 'communities';
-      loadCommunities(false);
+    } else {
+      return;
     }
+    renderViewHeader();
+    showView(state.view);
     return;
   }
 
@@ -513,34 +584,20 @@ document.addEventListener('click', (e) => {
   if (nav) {
     e.preventDefault();
     const key = nav.dataset.nav;
-    document.querySelectorAll('.side-nav a').forEach((a) => a.classList.remove('active'));
-    nav.classList.add('active');
-    renderViewHeader();
-    if (key === 'feed') {
-      state.view = 'feed';
-      loadMaterials();
-    } else if (key === 'my-files') {
-      state.view = 'my-files';
-      loadMaterials();
-    } else if (key === 'my-downloads') {
-      state.view = 'my-downloads';
-      loadMyDownloads();
-    } else if (key === 'my-communities') {
-      state.view = 'my-communities';
-      loadCommunities(true);
-    } else if (key === 'admin-communities') {
-      state.view = 'admin-communities';
-      loadCommunities(false, true);
-    } else if (key === 'materials' || key === 'communities') {
+
+    // Páginas de verdade (materiais, perfil, Klyra...): navega normalmente.
+    if (!IN_PAGE_VIEWS.has(key)) {
       location.href = nav.getAttribute('href');
-    } else if (key === 'profile') {
-      location.href = 'profile.html';
-    } else if (key === 'settings') {
-      location.href = 'feedback.html';
-    } else {
-      // Links sem tratamento especial seguem normalmente para a página de destino.
-      location.href = nav.getAttribute('href');
+      return;
     }
+
+    document.querySelectorAll('.side-nav a').forEach((a) => a.classList.remove('active'));
+    document.querySelector(`.side-nav [data-nav="${key}"]`)?.classList.add('active');
+
+    // Antes o título era desenhado ANTES de trocar a tela, então ficava uma tela atrasado.
+    state.view = key;
+    renderViewHeader();
+    showView(key);
     return;
   }
 
@@ -591,6 +648,15 @@ document.addEventListener('click', (e) => {
     }
   }
 });
+
+document.addEventListener(
+  'pointerover',
+  (e) => {
+    const nav = e.target.closest?.('[data-nav]');
+    if (nav && IN_PAGE_VIEWS.has(nav.dataset.nav)) warmView(nav.dataset.nav);
+  },
+  { passive: true },
+);
 
 $('q').addEventListener(
   'input',

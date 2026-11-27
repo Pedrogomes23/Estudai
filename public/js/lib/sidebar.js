@@ -48,6 +48,34 @@ const LINKS = [
   { id: 'dashboard', href: 'admin.html', label: 'Dashboard', icon: 'dashboard', adminOnly: true },
 ];
 
+// Guarda nome/e-mail/foto só nesta aba para o menu já nascer pronto nas próximas páginas
+// (antes ele aparecia vazio com "…" e depois "pulava" quando a API respondia).
+const USER_CACHE_KEY = 'estudai:sidebar-user';
+
+function readCachedUser() {
+  try {
+    return JSON.parse(sessionStorage.getItem(USER_CACHE_KEY) || 'null');
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedUser(user) {
+  try {
+    sessionStorage.setItem(
+      USER_CACHE_KEY,
+      JSON.stringify({
+        name: user.name,
+        email: user.email,
+        isAdmin: Boolean(user.isAdmin),
+        avatarUrl: user.avatarUrl ?? null,
+      }),
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
 function initials(name) {
   return String(name || '?')
     .split(/\s+/)
@@ -131,11 +159,30 @@ export function initSidebar({ active = 'feed', user = null, isAdmin = false } = 
   }
 
   // Sempre usa o menu completo (mesma barra em todas as páginas)
-  const admin = Boolean(isAdmin || user?.isAdmin);
+  const shownUser = user || readCachedUser();
+  const admin = Boolean(isAdmin || shownUser?.isAdmin);
   sidebar.innerHTML = buildSidebarHtml(active, admin);
   sidebar.dataset.active = active;
 
-  if (user) paintSidebarUser(user);
+  if (shownUser) paintSidebarUser(shownUser);
+
+  // Ao passar o mouse (ou tocar) num link de outra página, já baixa essa página em segundo plano.
+  const prefetched = new Set();
+  const prefetch = (e) => {
+    const a = e.target.closest?.('a[href]');
+    const href = a?.getAttribute('href');
+    if (!href || href.startsWith('#') || /^https?:/i.test(href)) return;
+    const page = href.split('#')[0];
+    if (!page.endsWith('.html') || prefetched.has(page)) return;
+    if (location.pathname.endsWith(`/${page}`)) return;
+    prefetched.add(page);
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.href = page;
+    document.head.append(link);
+  };
+  sidebar.addEventListener('pointerover', prefetch, { passive: true });
+  sidebar.addEventListener('touchstart', prefetch, { passive: true });
 
   // Botão hambúrguer
   document.querySelectorAll('#menu-toggle, .menu-toggle').forEach((btn) => {
@@ -227,12 +274,19 @@ export function setSidebarUser(user) {
       });
     });
   }
-  paintSidebarUser(user);
+  // Se a API não trouxe a foto (auth.me), reaproveita a que já estava guardada para não piscar.
+  const known = readCachedUser();
+  const merged = user.avatarUrl === undefined ? { ...user, avatarUrl: known?.avatarUrl ?? null } : user;
+  paintSidebarUser(merged);
+  writeCachedUser(merged);
 
   // Páginas que usam auth.me() não trazem avatarUrl: completa buscando no perfil.
   if (user.avatarUrl === undefined) {
     fetchAvatarUrl().then((avatarUrl) => {
-      if (avatarUrl) paintSidebarUser({ ...user, avatarUrl });
+      if (!avatarUrl) return;
+      const finalUser = { ...user, avatarUrl };
+      paintSidebarUser(finalUser);
+      writeCachedUser(finalUser);
     });
   }
 }

@@ -23,13 +23,25 @@ const upload = multer({
   },
 });
 
+// A URL assinada vale 7 dias. Antes, TODA chamada a /api/profile/me fazia uma viagem extra
+// até o Supabase Storage só para gerar a mesma URL. Agora guardamos na memória por 6 horas.
+const AVATAR_URL_TTL_MS = 6 * 60 * 60 * 1000;
+const avatarUrlCache = new Map();
+
 async function signedAvatarUrl(key) {
   if (!key || !supabase) return null;
+
+  const hit = avatarUrlCache.get(key);
+  if (hit && hit.expiresAt > Date.now()) return hit.url;
+
   const { data, error } = await supabase.storage.from('avatars').createSignedUrl(key, 60 * 60 * 24 * 7);
   if (error || !data?.signedUrl) {
     console.error('[avatar] signed url:', error?.message);
     return null;
   }
+
+  if (avatarUrlCache.size > 200) avatarUrlCache.delete(avatarUrlCache.keys().next().value);
+  avatarUrlCache.set(key, { url: data.signedUrl, expiresAt: Date.now() + AVATAR_URL_TTL_MS });
   return data.signedUrl;
 }
 

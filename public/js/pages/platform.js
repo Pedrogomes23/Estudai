@@ -8,11 +8,21 @@ mePromise.catch(() => location.replace('login.html'));
 import { $, debounce, escapeHtml, ICON_DOWNLOAD, ICON_USERS, initTabs } from '../lib/dom.js';
 import { initSidebar, setSidebarUser } from '../lib/sidebar.js';
 
-// Importando o Supabase Client para o upload de arquivos do chat
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+// Supabase Client: usado SÓ no upload de anexos do chat.
+// Antes era baixado do esm.sh (site de terceiros) em toda visita à página, travando a abertura.
+// Agora só é baixado quando alguém realmente envia um anexo.
 const supabaseUrl = 'https://abozwskrdzmxljnjlaai.supabase.co';
 const supabaseKey = 'sb_publishable_e3uyPCYDct4Xd_Qc7szWsw_yC73UEQq';
-const supabase = createClient(supabaseUrl, supabaseKey);
+let supabasePromise;
+function getSupabase() {
+  supabasePromise ??= import('https://esm.sh/@supabase/supabase-js@2').then(({ createClient }) =>
+    createClient(supabaseUrl, supabaseKey),
+  );
+  supabasePromise.catch(() => {
+    supabasePromise = undefined; // falhou (rede)? permite tentar de novo
+  });
+  return supabasePromise;
+}
 
 const state = { me: null, materials: [], totalMaterials: 0, communities: [], room: null };
 let setTab;
@@ -523,8 +533,10 @@ async function uploadAttachment(event) {
   btn.innerHTML = '⏳';
 
   try {
-    // 1. Solicita autorização temporária ao backend.
+    // 1. Solicita autorização temporária ao backend (e já baixa o cliente do Supabase em paralelo).
+    const supabasePending = getSupabase();
     const upload = await api.communities.createAttachmentUpload(state.room.id, file);
+    const supabase = await supabasePending;
 
     // 2. Envia o arquivo usando a autorização recebida.
     const { error } = await supabase.storage
@@ -624,8 +636,10 @@ window.enviarMaterialDoChat = async function (id, titulo, nomeArquivo) {
 
     const file = new File([blob], nomeSeguro, { type: blob.type || 'application/octet-stream' });
 
-    // 3. Solicita autorização temporária ao backend.
+    // 3. Solicita autorização temporária ao backend (e já baixa o cliente do Supabase em paralelo).
+    const supabasePending = getSupabase();
     const upload = await api.communities.createAttachmentUpload(room.id, file);
+    const supabase = await supabasePending;
 
     // 4. Envia o arquivo usando a autorização recebida.
     const { error } = await supabase.storage

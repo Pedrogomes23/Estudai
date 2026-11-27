@@ -84,8 +84,9 @@ export function materialsRouter({ db, config }) {
           ? 'm.title ASC, m.id DESC'
           : 'm.created_at DESC, m.id DESC';
 
-    const items = (
-      await db.all(
+    // Lista e contagem são independentes: rodam ao mesmo tempo (antes, uma esperava a outra).
+    const [rows, countRow] = await Promise.all([
+      db.all(
         `${select}
        WHERE ($3::text IS NULL OR m.category = $3::text)
          AND ($7::text IS NULL OR m.area = $7::text)
@@ -96,22 +97,24 @@ export function materialsRouter({ db, config }) {
        ORDER BY ${order}
        LIMIT ${MAX_LIST}`,
         [req.user.id, q, category, discipline, mineOnly ? 1 : 0, authorId, area],
-      )
-    ).map((row) => {
-      const item = toApi(row);
-      item.canDelete = item.mine || Boolean(req.user.is_admin);
-      return item;
-    });
-
-    const { n } = await db.get(
-      `SELECT COUNT(*)::int AS n FROM materials m
+      ),
+      db.get(
+        `SELECT COUNT(*)::int AS n FROM materials m
        WHERE ($1::text IS NULL OR m.category = $1::text)
          AND ($2::text IS NULL OR m.area = $2::text)
          AND ($3::text = '' OR lower(unaccent(m.discipline)) = lower(unaccent($3::text)))
          AND ($4::int = 0 OR m.author_id = $5)
          AND ($6::int IS NULL OR m.author_id = $6)`,
-      [category, area, discipline, mineOnly ? 1 : 0, req.user.id, authorId],
-    );
+        [category, area, discipline, mineOnly ? 1 : 0, req.user.id, authorId],
+      ),
+    ]);
+
+    const items = rows.map((row) => {
+      const item = toApi(row);
+      item.canDelete = item.mine || Boolean(req.user.is_admin);
+      return item;
+    });
+    const n = countRow.n;
 
     res.json({ items, total: n });
   });
