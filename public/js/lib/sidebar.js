@@ -25,27 +25,27 @@ const ICONS = {
 };
 
 const LINKS = [
-  { id: 'feed', href: 'feed.html', label: 'Início / Feed', icon: 'feed' },
-  { id: 'materials', href: 'plataforma.html', label: 'Explorar materiais', icon: 'materials' },
+  { id: 'feed', href: '/feed', label: 'Início / Feed', icon: 'feed' },
+  { id: 'materials', href: '/plataforma', label: 'Explorar materiais', icon: 'materials' },
   {
     id: 'communities',
-    href: 'plataforma.html#comunidades',
+    href: '/plataforma#comunidades',
     label: 'Explorar comunidades',
     icon: 'communities',
   },
-  { id: 'my-files', href: 'feed.html#my-files', label: 'Meus arquivos', icon: 'files' },
-  { id: 'my-downloads', href: 'feed.html#my-downloads', label: 'Meus downloads', icon: 'downloads' },
-  { id: 'my-communities', href: 'feed.html#my-communities', label: 'Minhas comunidades', icon: 'myCom' },
+  { id: 'my-files', href: '/feed#my-files', label: 'Meus arquivos', icon: 'files' },
+  { id: 'my-downloads', href: '/feed#my-downloads', label: 'Meus downloads', icon: 'downloads' },
+  { id: 'my-communities', href: '/feed#my-communities', label: 'Minhas comunidades', icon: 'myCom' },
   {
     id: 'admin-communities',
-    href: 'feed.html#admin-communities',
+    href: '/feed#admin-communities',
     label: 'Comunidades que administro',
     icon: 'adminCom',
   },
-  { id: 'klyra', href: 'klyra.html', label: 'Klyra IA', icon: 'klyra' },
-  { id: 'profile', href: 'profile.html', label: 'Meu perfil', icon: 'profile' },
-  { id: 'settings', href: 'feedback.html', label: 'Feedback', icon: 'settings' },
-  { id: 'dashboard', href: 'admin.html', label: 'Dashboard', icon: 'dashboard', adminOnly: true },
+  { id: 'klyra', href: '/klyra', label: 'Klyra IA', icon: 'klyra' },
+  { id: 'profile', href: '/profile', label: 'Meu perfil', icon: 'profile' },
+  { id: 'settings', href: '/feedback', label: 'Feedback', icon: 'settings' },
+  { id: 'dashboard', href: '/admin', label: 'Dashboard', icon: 'dashboard', adminOnly: true },
 ];
 
 // Guarda nome/e-mail/foto só nesta aba para o menu já nascer pronto nas próximas páginas
@@ -124,7 +124,7 @@ function buildSidebarHtml(active, isAdmin = false) {
 
   return `
     <div class="brand">
-      <a class="logo" href="feed.html">Estud<b>aí!</b></a>
+      <a class="logo" href="/feed">Estud<b>aí!</b></a>
     </div>
     <nav class="side-nav" id="side-nav">${nav}</nav>
     <div class="side-foot">
@@ -172,9 +172,10 @@ export function initSidebar({ active = 'feed', user = null, isAdmin = false } = 
     const a = e.target.closest?.('a[href]');
     const href = a?.getAttribute('href');
     if (!href || href.startsWith('#') || /^https?:/i.test(href)) return;
-    const page = href.split('#')[0];
-    if (!page.endsWith('.html') || prefetched.has(page)) return;
-    if (location.pathname.endsWith(`/${page}`)) return;
+    const page = href.split('#')[0].split('?')[0];
+    // Prefetch only internal clean paths (e.g. /feed, /klyra)
+    if (!page.startsWith('/') || page === '/' || prefetched.has(page)) return;
+    if (location.pathname === page || location.pathname === page + '/') return;
     prefetched.add(page);
     const link = document.createElement('link');
     link.rel = 'prefetch';
@@ -217,7 +218,7 @@ export function initSidebar({ active = 'feed', user = null, isAdmin = false } = 
   // Logout
   sidebar.querySelector('[data-logout]')?.addEventListener('click', (e) => {
     e.preventDefault();
-    api.auth.logout().finally(() => location.replace('index.html'));
+    api.auth.logout().finally(() => location.replace('/'));
   });
 
   return { openSidebar, closeSidebar, sidebar };
@@ -266,7 +267,7 @@ export function setSidebarUser(user) {
     // re-bind logout after rebuild
     sidebar.querySelector('[data-logout]')?.addEventListener('click', (e) => {
       e.preventDefault();
-      api.auth.logout().finally(() => location.replace('index.html'));
+      api.auth.logout().finally(() => location.replace('/'));
     });
     sidebar.querySelectorAll('a').forEach((a) => {
       a.addEventListener('click', () => {

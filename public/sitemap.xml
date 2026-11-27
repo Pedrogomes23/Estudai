@@ -6,12 +6,12 @@
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://estudai-lilac.vercel.app/politica-de-cookies.html</loc>
+    <loc>https://estudai-lilac.vercel.app/politica-de-cookies</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://estudai-lilac.vercel.app/acessibilidade.html</loc>
+    <loc>https://estudai-lilac.vercel.app/acessibilidade</loc>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>

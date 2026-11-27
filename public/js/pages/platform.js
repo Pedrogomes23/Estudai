@@ -3,7 +3,7 @@ import { confirmDialog } from '../lib/confirm-dialog.js';
 // Garante autenticação: visitantes vão para o login
 // (a mesma resposta é reaproveitada no start(), em vez de pedir /me duas vezes)
 const mePromise = api.auth.me();
-mePromise.catch(() => location.replace('login.html'));
+mePromise.catch(() => location.replace('/login'));
 
 import { $, debounce, escapeHtml, ICON_DOWNLOAD, ICON_USERS, initTabs } from '../lib/dom.js';
 import { initSidebar, setSidebarUser } from '../lib/sidebar.js';
@@ -44,7 +44,7 @@ function say(text) {
 
 /** Sessão expirada volta para o login; qualquer outro erro vira aviso na tela. */
 function handleError(err, fallback) {
-  if (err instanceof ApiError && err.status === 401) return location.replace('login.html');
+  if (err instanceof ApiError && err.status === 401) return location.replace('/login');
   say(err instanceof ApiError ? err.message : fallback);
 }
 
@@ -149,7 +149,7 @@ async function addMaterial(event) {
     await loadMaterials();
     say('Material publicado.');
   } catch (err) {
-    if (err instanceof ApiError && err.status === 401) return location.replace('login.html');
+    if (err instanceof ApiError && err.status === 401) return location.replace('/login');
     error.textContent =
       err instanceof ApiError ? err.message : 'Não foi possível salvar o arquivo. Tente de novo.';
   } finally {
@@ -281,7 +281,7 @@ async function addCommunity(event) {
     await loadCommunities();
     say('Comunidade criada. Você já é membro.');
   } catch (err) {
-    if (err instanceof ApiError && err.status === 401) return location.replace('login.html');
+    if (err instanceof ApiError && err.status === 401) return location.replace('/login');
     $('ce').textContent = err instanceof ApiError ? err.message : 'Não foi possível criar a comunidade.';
   }
 }
@@ -508,7 +508,7 @@ async function sendMessage(event) {
     await refreshRoom(true);
   } catch (err) {
     input.value = body; // não perde o texto digitado
-    if (err instanceof ApiError && err.status === 401) return location.replace('login.html');
+    if (err instanceof ApiError && err.status === 401) return location.replace('/login');
     $('chat-err').textContent = err instanceof ApiError ? err.message : 'Não foi possível enviar a mensagem.';
   }
   input.focus();
@@ -799,7 +799,7 @@ async function logout(event) {
   try {
     await api.auth.logout();
   } finally {
-    location.replace('index.html');
+    location.replace('/');
   }
 }
 
@@ -810,7 +810,7 @@ async function start() {
   try {
     state.me = await mePromise;
   } catch (err) {
-    if (err instanceof ApiError && err.status === 401) return location.replace('login.html');
+    if (err instanceof ApiError && err.status === 401) return location.replace('/login');
     return say('Não foi possível conectar ao servidor.');
   }
   const created = state.me.createdAt ? new Date(state.me.createdAt).getTime() : 0;
@@ -822,7 +822,7 @@ async function start() {
   if (state.me.isAdmin) {
     const link = $('admin-link');
     if (link) link.hidden = false;
-    document.querySelectorAll('a[href="feedback.html"]').forEach((a) => {
+    document.querySelectorAll('a[href="/feedback"]').forEach((a) => {
       a.hidden = true;
     });
   }

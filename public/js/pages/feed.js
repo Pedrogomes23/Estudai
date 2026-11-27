@@ -28,7 +28,7 @@ function say(text) {
 
 function handleError(err, fallback) {
   if (err instanceof ApiError && err.status === 401) {
-    location.replace('login.html');
+    location.replace('/login');
     return;
   }
   say(err instanceof ApiError ? err.message : fallback);
@@ -502,7 +502,7 @@ function renderCommunities(items, mineOnly) {
         </p>
         <div class="community-card-bottom">
           <span class="view-meta">${c.members} participantes</span>
-          <a class="btn p sm" href="plataforma.html">
+          <a class="btn p sm" href="/plataforma">
             ${mineOnly ? 'Acessar gestão' : 'Abrir comunidade'}
           </a>
         </div>
@@ -603,7 +603,7 @@ document.addEventListener('click', (e) => {
 
   if (e.target.closest('[data-logout]')) {
     e.preventDefault();
-    api.auth.logout().finally(() => location.replace('index.html'));
+    api.auth.logout().finally(() => location.replace('/'));
   }
 
   if (e.target.closest('#btn-notif')) {

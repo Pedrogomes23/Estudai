@@ -7,7 +7,7 @@
  */
 const KEY = 'estudai_a11y';
 const STYLE_URL = '/css/accessibility.css';
-const PAGE_URL = '/acessibilidade.html';
+const PAGE_URL = '/acessibilidade';
 
 const DEFAULTS = {
   text: 0, // 0=100%, 1=112.5%, 2=125%, 3=150%, 4=200%

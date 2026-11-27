@@ -28,7 +28,7 @@ function say(text) {
 
 /** Sessão expirada volta para o login; qualquer outro erro vira aviso na tela. */
 function handleError(err, fallback) {
-  if (err instanceof ApiError && err.status === 401) return location.replace('login.html');
+  if (err instanceof ApiError && err.status === 401) return location.replace('/login');
   say(err instanceof ApiError ? err.message : fallback);
 }
 
@@ -130,7 +130,7 @@ async function submit(event) {
     showThanks();
     prependMine(item);
   } catch (err) {
-    if (err instanceof ApiError && err.status === 401) return location.replace('login.html');
+    if (err instanceof ApiError && err.status === 401) return location.replace('/login');
     // Erros de campo vindos do servidor aparecem junto ao campo; os demais, acima do botão.
     const apiError = err instanceof ApiError ? err : null;
     const field = apiError?.fields && Object.keys(apiError.fields).find((key) => FIELDS.includes(key));
@@ -183,7 +183,7 @@ async function logout(event) {
   try {
     await api.auth.logout();
   } finally {
-    location.replace('index.html');
+    location.replace('/');
   }
 }
 
@@ -219,12 +219,12 @@ async function start() {
       const form = $('f-feedback');
       const note = document.createElement('p');
       note.className = 'admin-note';
-      note.innerHTML = 'Contas administrativas não enviam feedback. Veja as avaliações no <a href="admin.html">Dashboard</a>.';
+      note.innerHTML = 'Contas administrativas não enviam feedback. Veja as avaliações no <a href="/admin">Dashboard</a>.';
       form?.replaceWith(note);
       return;
     }
   } catch (err) {
-    if (err instanceof ApiError && err.status === 401) return location.replace('login.html');
+    if (err instanceof ApiError && err.status === 401) return location.replace('/login');
     return say('Não foi possível conectar ao servidor.');
   }
   bindEvents();

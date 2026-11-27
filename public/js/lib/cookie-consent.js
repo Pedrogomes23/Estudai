@@ -11,7 +11,7 @@
 const KEY = 'estudai_cookie_consent';
 const VERSION = 2; // aumente quando a política mudar de forma relevante: o aviso volta a aparecer
 const MAX_AGE_MS = 365 * 86_400_000; // pergunta de novo depois de 12 meses
-const POLICY_URL = '/politica-de-cookies.html';
+const POLICY_URL = '/politica-de-cookies';
 const STYLE_URL = '/css/cookies.css';
 
 const CATEGORIES = [

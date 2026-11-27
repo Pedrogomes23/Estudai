@@ -32,7 +32,7 @@ function say(text) {
 }
 
 function handleError(err, fallback) {
-  if (err instanceof ApiError && err.status === 401) return location.replace('login.html');
+  if (err instanceof ApiError && err.status === 401) return location.replace('/login');
   say(err instanceof ApiError ? err.message : fallback);
 }
 
@@ -155,7 +155,7 @@ $('avatar-remove')?.addEventListener('click', async () => {
 document.addEventListener('click', (e) => {
   if (e.target.closest('[data-logout]')) {
     e.preventDefault();
-    api.auth.logout().finally(() => location.replace('index.html'));
+    api.auth.logout().finally(() => location.replace('/'));
   }
   const del = e.target.closest('[data-del]');
   if (del) {

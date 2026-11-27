@@ -689,7 +689,7 @@ async function init() {
   try {
     user = await api.auth.me();
   } catch {
-    location.href = 'login.html';
+    location.href = '/login';
     return;
   }
 

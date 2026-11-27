@@ -182,7 +182,7 @@ async function loadAllUsers() {
     state.allUsers = await api.admin.users();
   } catch (err) {
     if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
-      return location.replace('login.html');
+      return location.replace('/login');
     }
     state.showAllUsers = false;
     say(err instanceof ApiError ? err.message : 'Não foi possível carregar todos os usuários.');
@@ -207,7 +207,7 @@ async function loadStats() {
     $('msg').hidden = true;
   } catch (err) {
     if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
-      return location.replace('login.html');
+      return location.replace('/login');
     }
     say(err instanceof ApiError ? err.message : 'Não foi possível carregar as estatísticas.');
   } finally {
@@ -230,7 +230,7 @@ async function logout(event) {
   try {
     await api.auth.logout();
   } finally {
-    location.replace('index.html');
+    location.replace('/');
   }
 }
 
@@ -238,12 +238,12 @@ async function start() {
   try {
     state.me = await api.auth.me();
   } catch (err) {
-    if (err instanceof ApiError && err.status === 401) return location.replace('login.html');
+    if (err instanceof ApiError && err.status === 401) return location.replace('/login');
     return say('Não foi possível conectar ao servidor.');
   }
 
   if (!state.me.isAdmin) {
-    return location.replace('feed.html');
+    return location.replace('/feed');
   }
 
   $('hi').textContent = `Olá, ${state.me.name || 'admin'}`;

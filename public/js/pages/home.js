@@ -9,7 +9,7 @@ async function start() {
   try {
     const user = await api.auth.me();
     if (user) {
-      location.replace('feed.html');
+      location.replace('/feed');
       return;
     }
   } catch {

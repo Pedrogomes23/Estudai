@@ -137,7 +137,7 @@ async function submitLogin(event) {
       remember: $('li-rem').checked,
     });
     form.reset();
-    location.replace('feed.html');
+    location.replace('/feed');
   } catch (err) {
     if (err.code === 'EMAIL_NOT_VERIFIED') {
       showVerificationNotice(
@@ -232,7 +232,7 @@ export async function initAuth() {
   if (forgot) {
     forgot.addEventListener('click', (event) => {
       event.preventDefault();
-      location.href = 'forgot-password.html';
+      location.href = '/forgot-password';
     });
   }
 
@@ -243,7 +243,7 @@ export async function initAuth() {
   // Quem já está conectado vai direto para a plataforma
   try {
     await api.auth.me();
-    location.replace('feed.html');
+    location.replace('/feed');
   } catch {
     // sem sessão: permanece na tela de login
   }
