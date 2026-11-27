@@ -203,7 +203,15 @@ export function setSidebarUser(user) {
   const av = document.getElementById('side-av');
   const name = document.getElementById('side-name');
   const email = document.getElementById('side-email');
-  if (av) av.textContent = initials(user.name);
+  if (av) {
+    if (user.avatarUrl) {
+      av.classList.add('has-photo');
+      av.innerHTML = '<img src="' + String(user.avatarUrl).replace(/"/g, '&quot;') + '" alt="">';
+    } else {
+      av.classList.remove('has-photo');
+      av.textContent = initials(user.name);
+    }
+  }
   if (name) name.textContent = user.name || '…';
   if (email) email.textContent = user.email || '';
 }

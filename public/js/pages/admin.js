@@ -267,10 +267,59 @@ async function start() {
 
 start();
 
+/* Aviso de atualização → sininho de todos + histórico */
+function formatAnnDate(iso) {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '—';
+  }
+}
 
-/* Aviso de atualização → sininho de todos */
+function escapeAnn(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+async function loadAnnouncements() {
+  const box = document.getElementById('announcement-list');
+  if (!box) return;
+  try {
+    const items = await api.admin.listAnnouncements();
+    if (!items?.length) {
+      box.innerHTML = '<p class="muted" style="margin:0">Nenhum aviso enviado ainda.</p>';
+      return;
+    }
+    box.innerHTML = items
+      .map(
+        (a) => `<article class="ann-item" data-id="${a.id}">
+          <div class="ann-item-head">
+            <strong>${escapeAnn(a.title)}</strong>
+            <button type="button" class="lnk ann-del" data-id="${a.id}">Apagar</button>
+          </div>
+          <p class="ann-item-body">${escapeAnn(a.body)}</p>
+          <div class="ann-item-meta muted">${formatAnnDate(a.createdAt)} · ${a.notified || 0} notificaç${(a.notified || 0) === 1 ? 'ão' : 'ões'}</div>
+        </article>`,
+      )
+      .join('');
+  } catch (err) {
+    box.innerHTML = `<p class="muted" style="margin:0">${escapeAnn(err.message || 'Erro ao carregar avisos.')}</p>`;
+  }
+}
+
 const annForm = document.getElementById('announcement-form');
 if (annForm) {
+  loadAnnouncements();
   annForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const title = document.getElementById('ann-title').value.trim();
@@ -285,10 +334,26 @@ if (annForm) {
       msg.textContent = r.message || `Aviso enviado (${r.notified || 0} usuários).`;
       msg.hidden = false;
       annForm.reset();
+      loadAnnouncements();
     } catch (err) {
       msg.textContent = err.message || 'Não foi possível enviar o aviso.';
       msg.hidden = false;
     } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('announcement-list')?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.ann-del');
+    if (!btn) return;
+    const id = Number(btn.dataset.id);
+    if (!id || !confirm('Apagar este aviso? Ele some do sininho de todos os usuários.')) return;
+    btn.disabled = true;
+    try {
+      await api.admin.deleteAnnouncement(id);
+      loadAnnouncements();
+    } catch (err) {
+      alert(err.message || 'Não foi possível apagar.');
       btn.disabled = false;
     }
   });

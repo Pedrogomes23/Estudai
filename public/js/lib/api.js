@@ -119,6 +119,12 @@ export const api = {
     me: () => request('GET', '/api/profile/me'),
     update: (data) => request('PATCH', '/api/profile/me', { json: data }).then((r) => r.user),
     activities: () => request('GET', '/api/profile/activities').then((r) => r.items),
+    uploadAvatar: (file) => {
+      const form = new FormData();
+      form.append('avatar', file);
+      return request('POST', '/api/profile/me/avatar', { form });
+    },
+    removeAvatar: () => request('DELETE', '/api/profile/me/avatar'),
   },
   notifications: {
     list: () => request('GET', '/api/notifications'),
@@ -134,6 +140,8 @@ export const api = {
     users: () => request('GET', '/api/admin/users').then((r) => r.items),
     announce: (title, body) =>
       request('POST', '/api/admin/announcements', { json: { title, body } }),
+    listAnnouncements: () => request('GET', '/api/admin/announcements').then((r) => r.items),
+    deleteAnnouncement: (id) => request('DELETE', `/api/admin/announcements/${id}`),
   },
   ai: {
     listConversations: () => request('GET', '/api/ai/conversations'),

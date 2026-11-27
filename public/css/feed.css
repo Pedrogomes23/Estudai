@@ -583,3 +583,14 @@ body.sidebar-open{overflow:hidden}
 .notif-modal-card h3{margin:0 28px 10px 0;font:800 20px/1.25 "Baloo 2",Nunito,sans-serif}
 .notif-modal-body{margin:0 0 16px;color:#dfe3f2;font-size:15px;line-height:1.55;white-space:pre-wrap}
 .notif-modal-ok{width:100%}
+
+
+/* Foto de perfil circular */
+.av img,
+.profile-av img{
+  width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;
+}
+.av.has-photo{background:transparent;overflow:hidden;padding:0}
+.avatar-edit{display:flex;align-items:center;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+.avatar-edit .profile-av{width:72px;height:72px;font-size:24px;flex-shrink:0}
+.avatar-edit-actions{display:flex;flex-direction:column;align-items:flex-start;gap:4px}

@@ -148,3 +148,14 @@ td.empty{color:var(--mut);text-align:center;padding:24px}
   .tab{padding:10px 18px;font-size:15px}
   .happiness-score strong{font-size:44px}
 }
+
+
+/* Histórico de avisos de atualização */
+.ann-list{display:grid;gap:10px;margin-top:4px}
+.ann-item{
+  border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--card,#111c42);
+}
+.ann-item-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.ann-item-head strong{font-size:15px}
+.ann-item-body{margin:8px 0 6px;color:#dfe3f2;font-size:14px;line-height:1.45;white-space:pre-wrap}
+.ann-item-meta{font-size:12px}

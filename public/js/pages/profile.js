@@ -11,6 +11,18 @@ function initials(name) {
     .toUpperCase();
 }
 
+/** Preenche um .av com foto ou iniciais. */
+function paintAvatar(el, { name, avatarUrl }) {
+  if (!el) return;
+  if (avatarUrl) {
+    el.classList.add('has-photo');
+    el.innerHTML = `<img src="${escapeHtml(avatarUrl)}" alt="">`;
+  } else {
+    el.classList.remove('has-photo');
+    el.textContent = initials(name);
+  }
+}
+
 function say(text) {
   const box = $('msg');
   box.textContent = text;
@@ -37,7 +49,10 @@ async function boot() {
     $('prof-bio').textContent = u.bio || 'Nenhuma biografia ainda.';
     $('side-name').textContent = u.name;
     $('side-email').textContent = u.email;
-    $('side-av').textContent = initials(u.name);
+    paintAvatar($('side-av'), u);
+    paintAvatar($('prof-av'), u);
+    paintAvatar($('edit-av-preview'), u);
+    $('avatar-remove').hidden = !u.avatarUrl;
     $('name').value = u.name;
     $('bio').value = u.bio || '';
 
@@ -85,10 +100,53 @@ $('edit-form').addEventListener('submit', async (e) => {
     $('prof-name').textContent = user.name;
     $('prof-bio').textContent = user.bio || 'Nenhuma biografia ainda.';
     $('side-name').textContent = user.name;
-    $('side-av').textContent = initials(user.name);
+    paintAvatar($('side-av'), user);
+    paintAvatar($('prof-av'), user);
+    paintAvatar($('edit-av-preview'), user);
     say('Perfil atualizado.');
   } catch (err) {
     $('edit-err').textContent = err instanceof ApiError ? err.message : 'Erro ao salvar.';
+  }
+});
+
+$('avatar-input')?.addEventListener('change', async () => {
+  const file = $('avatar-input').files?.[0];
+  $('avatar-err').textContent = '';
+  if (!file) return;
+  if (file.size > 4 * 1024 * 1024) {
+    $('avatar-err').textContent = 'A foto deve ter no máximo 4 MB.';
+    $('avatar-input').value = '';
+    return;
+  }
+  try {
+    const { user } = await api.profile.uploadAvatar(file);
+    const name = $('name').value.trim() || $('prof-name').textContent;
+    const data = { name, avatarUrl: user.avatarUrl };
+    paintAvatar($('side-av'), data);
+    paintAvatar($('prof-av'), data);
+    paintAvatar($('edit-av-preview'), data);
+    $('avatar-remove').hidden = false;
+    say('Foto atualizada.');
+  } catch (err) {
+    $('avatar-err').textContent = err instanceof ApiError ? err.message : 'Não foi possível enviar a foto.';
+  } finally {
+    $('avatar-input').value = '';
+  }
+});
+
+$('avatar-remove')?.addEventListener('click', async () => {
+  $('avatar-err').textContent = '';
+  try {
+    await api.profile.removeAvatar();
+    const name = $('name').value.trim() || $('prof-name').textContent;
+    const data = { name, avatarUrl: null };
+    paintAvatar($('side-av'), data);
+    paintAvatar($('prof-av'), data);
+    paintAvatar($('edit-av-preview'), data);
+    $('avatar-remove').hidden = true;
+    say('Foto removida.');
+  } catch (err) {
+    $('avatar-err').textContent = err instanceof ApiError ? err.message : 'Não foi possível remover.';
   }
 });
 

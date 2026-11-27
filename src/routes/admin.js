@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAdmin } from '../middleware/auth.js';
-import { badRequest } from '../lib/errors.js';
+import { badRequest, notFound } from '../lib/errors.js';
 
 /** Quantos usuários aparecem na tabela antes de clicar em "Exibir mais". */
 const PREVIEW_USERS = 10;
@@ -130,7 +130,32 @@ export function adminRouter({ db }) {
   });
 
 
-  /** Aviso de atualização do site → notificação no sininho de todos. */
+  /** Lista avisos enviados (mais recentes primeiro). */
+  router.get('/announcements', async (_req, res) => {
+    const rows = await db.all(
+      `SELECT a.id, a.title, a.body, a.created_at,
+              u.name AS author_name,
+              (SELECT COUNT(*)::int FROM notifications n WHERE n.announcement_id = a.id) AS notified
+         FROM announcements a
+         LEFT JOIN users u ON u.id = a.created_by
+        ORDER BY a.created_at DESC
+        LIMIT 50`,
+    );
+    res.json({
+      items: rows.map((r) => ({
+        id: r.id,
+        title: r.title,
+        body: r.body,
+        authorName: r.author_name || '—',
+        notified: r.notified,
+        createdAt: r.created_at
+          ? new Date(r.created_at).toISOString().replace(/\.\d{3}Z$/, 'Z')
+          : null,
+      })),
+    });
+  });
+
+  /** Aviso de atualização → grava histórico e notifica todos no sininho. */
   router.post('/announcements', async (req, res) => {
     const title = String(req.body?.title || '').trim().slice(0, 120);
     const body = String(req.body?.body || '').trim().slice(0, 2000);
@@ -138,13 +163,43 @@ export function adminRouter({ db }) {
       throw badRequest('Informe título e mensagem do aviso.');
     }
 
-    const notified = await db.run(
-      `INSERT INTO notifications (user_id, type, title, body)
-       SELECT id, 'site_update', $1, $2 FROM users`,
-      [title, body],
+    const ann = await db.get(
+      `INSERT INTO announcements (title, body, created_by)
+       VALUES ($1, $2, $3)
+       RETURNING id, title, body, created_at`,
+      [title, body, req.user.id],
     );
 
-    res.status(201).json({ message: 'Aviso enviado a todos os usuários.', notified: notified ?? 0 });
+    const notified = await db.run(
+      `INSERT INTO notifications (user_id, type, title, body, announcement_id)
+       SELECT id, 'site_update', $1, $2, $3 FROM users`,
+      [title, body, ann.id],
+    );
+
+    res.status(201).json({
+      message: 'Aviso enviado a todos os usuários.',
+      notified: notified ?? 0,
+      item: {
+        id: ann.id,
+        title: ann.title,
+        body: ann.body,
+        notified: notified ?? 0,
+        createdAt: ann.created_at
+          ? new Date(ann.created_at).toISOString().replace(/\.\d{3}Z$/, 'Z')
+          : null,
+      },
+    });
+  });
+
+  /** Apaga o aviso e remove as notificações ligadas a ele. */
+  router.delete('/announcements/:id', async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) throw badRequest('Aviso inválido.');
+    const row = await db.get('SELECT id FROM announcements WHERE id = $1', [id]);
+    if (!row) throw notFound('Aviso não encontrado.');
+    // CASCADE em announcement_id remove as notifications
+    await db.run('DELETE FROM announcements WHERE id = $1', [id]);
+    res.status(204).end();
   });
 
   return router;

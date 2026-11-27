@@ -1,16 +1,59 @@
 import { Router } from 'express';
-import { badRequest } from '../lib/errors.js';
+import multer from 'multer';
+import { createClient } from '@supabase/supabase-js';
+import { badRequest, HttpError } from '../lib/errors.js';
 import { requireAuth } from '../middleware/auth.js';
+
+const AVATAR_MAX_BYTES = 4 * 1024 * 1024; // 4 MB
+const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: AVATAR_MAX_BYTES, files: 1 },
+  fileFilter(_req, file, cb) {
+    if (!ALLOWED_MIME.has(file.mimetype)) {
+      cb(new HttpError(400, 'VALIDATION_ERROR', 'Use JPEG, PNG, WebP ou GIF.'));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
+async function signedAvatarUrl(key) {
+  if (!key || !supabase) return null;
+  const { data, error } = await supabase.storage.from('avatars').createSignedUrl(key, 60 * 60 * 24 * 7);
+  if (error || !data?.signedUrl) {
+    console.error('[avatar] signed url:', error?.message);
+    return null;
+  }
+  return data.signedUrl;
+}
+
+function mapUser(row, avatarUrl) {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    bio: row.bio || '',
+    isAdmin: Boolean(row.is_admin),
+    avatarUrl: avatarUrl || null,
+    createdAt: row.created_at
+      ? new Date(row.created_at).toISOString().replace(/\.\d{3}Z$/, 'Z')
+      : null,
+  };
+}
 
 export function profileRouter({ db }) {
   const router = Router();
   router.use(requireAuth);
 
-  /** Dados completos da conta autenticada + contadores */
   router.get('/me', async (req, res) => {
-    const u = req.user;
     const row = await db.get(
-      `SELECT u.id, u.name, u.email, COALESCE(u.bio, '') AS bio,
+      `SELECT u.id, u.name, u.email, COALESCE(u.bio, '') AS bio, u.avatar_key,
               COALESCE(u.is_admin, false) AS is_admin, u.created_at,
               (SELECT COUNT(*)::int FROM materials WHERE author_id = u.id) AS materials_count,
               (SELECT COUNT(*)::int FROM material_downloads WHERE user_id = u.id) AS downloads_count,
@@ -18,18 +61,13 @@ export function profileRouter({ db }) {
               (SELECT COUNT(*)::int FROM communities WHERE created_by = u.id) AS communities_owned_count
          FROM users u
         WHERE u.id = $1`,
-      [u.id],
+      [req.user.id],
     );
 
+    const avatarUrl = await signedAvatarUrl(row.avatar_key);
+
     res.json({
-      user: {
-        id: row.id,
-        name: row.name,
-        email: row.email,
-        bio: row.bio || '',
-        isAdmin: Boolean(row.is_admin),
-        createdAt: row.created_at ? new Date(row.created_at).toISOString().replace(/\.\d{3}Z$/, 'Z') : null,
-      },
+      user: mapUser(row, avatarUrl),
       stats: {
         materials: row.materials_count,
         downloads: row.downloads_count,
@@ -39,7 +77,6 @@ export function profileRouter({ db }) {
     });
   });
 
-  /** Atualiza nome e bio */
   router.patch('/me', async (req, res) => {
     const name = typeof req.body?.name === 'string' ? req.body.name.trim().slice(0, 80) : null;
     const bio = typeof req.body?.bio === 'string' ? req.body.bio.trim().slice(0, 500) : null;
@@ -55,83 +92,70 @@ export function profileRouter({ db }) {
     }
 
     const updated = await db.get(
-      'SELECT id, name, email, bio, is_admin, created_at FROM users WHERE id = $1',
+      'SELECT id, name, email, bio, avatar_key, is_admin, created_at FROM users WHERE id = $1',
       [req.user.id],
     );
-    res.json({
-      user: {
-        id: updated.id,
-        name: updated.name,
-        email: updated.email,
-        bio: updated.bio || '',
-        isAdmin: Boolean(updated.is_admin),
-        createdAt: new Date(updated.created_at).toISOString().replace(/\.\d{3}Z$/, 'Z'),
-      },
-    });
+    res.json({ user: mapUser(updated, await signedAvatarUrl(updated.avatar_key)) });
   });
 
-  /** Atividades recentes da conta */
-  router.get('/activities', async (req, res) => {
-    const uid = req.user.id;
-    const [myMaterials, myDownloads, joinedCommunities, newInCommunities] = await Promise.all([
-      db.all(
-        `SELECT id, title, created_at FROM materials
-          WHERE author_id = $1 ORDER BY created_at DESC LIMIT 5`,
-        [uid],
-      ),
-      db.all(
-        `SELECT m.id, m.title, md.downloaded_at AS at
-           FROM material_downloads md JOIN materials m ON m.id = md.material_id
-          WHERE md.user_id = $1 ORDER BY md.downloaded_at DESC LIMIT 5`,
-        [uid],
-      ),
-      db.all(
-        `SELECT c.id, c.name, cm.joined_at AS at
-           FROM community_members cm JOIN communities c ON c.id = cm.community_id
-          WHERE cm.user_id = $1 ORDER BY cm.joined_at DESC LIMIT 5`,
-        [uid],
-      ),
-      db.all(
-        `SELECT m.id, m.title, m.created_at AS at, c.name AS community
-           FROM materials m
-           JOIN community_members cm ON cm.user_id = m.author_id
-           JOIN communities c ON c.id = cm.community_id
-          WHERE cm.user_id = $1 AND m.author_id <> $1
-          ORDER BY m.created_at DESC LIMIT 5`,
-        [uid],
-      ),
-    ]);
+  /** Upload da foto de perfil (até 4 MB). */
+  router.post('/me/avatar', (req, res, next) => {
+    upload.single('avatar')(req, res, (err) => {
+      if (err) {
+        if (err instanceof HttpError) return next(err);
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return next(badRequest('A foto deve ter no máximo 4 MB.'));
+        }
+        return next(badRequest(err.message || 'Arquivo inválido.'));
+      }
+      next();
+    });
+  }, async (req, res) => {
+    if (!req.file) throw badRequest('Selecione uma imagem.');
+    if (!supabase) {
+      throw new HttpError(500, 'CONFIG_ERROR', 'Armazenamento de imagens não configurado (Supabase).');
+    }
 
-    const activities = [
-      ...myMaterials.map((r) => ({
-        type: 'upload',
-        title: r.title,
-        at: new Date(r.created_at).toISOString().replace(/\.\d{3}Z$/, 'Z'),
-        meta: { materialId: r.id },
-      })),
-      ...myDownloads.map((r) => ({
-        type: 'download',
-        title: r.title,
-        at: new Date(r.at).toISOString().replace(/\.\d{3}Z$/, 'Z'),
-        meta: { materialId: r.id },
-      })),
-      ...joinedCommunities.map((r) => ({
-        type: 'join',
-        title: r.name,
-        at: new Date(r.at).toISOString().replace(/\.\d{3}Z$/, 'Z'),
-        meta: { communityId: r.id },
-      })),
-      ...newInCommunities.map((r) => ({
-        type: 'community_material',
-        title: r.title,
-        at: new Date(r.at).toISOString().replace(/\.\d{3}Z$/, 'Z'),
-        meta: { materialId: r.id, community: r.community },
-      })),
-    ]
-      .sort((a, b) => (a.at < b.at ? 1 : -1))
-      .slice(0, 12);
+    const ext =
+      req.file.mimetype === 'image/png'
+        ? 'png'
+        : req.file.mimetype === 'image/webp'
+          ? 'webp'
+          : req.file.mimetype === 'image/gif'
+            ? 'gif'
+            : 'jpg';
+    const key = `user-${req.user.id}/avatar.${ext}`;
 
-    res.json({ items: activities });
+    const current = await db.get('SELECT avatar_key FROM users WHERE id = $1', [req.user.id]);
+
+    const { error } = await supabase.storage.from('avatars').upload(key, req.file.buffer, {
+      contentType: req.file.mimetype,
+      upsert: true,
+    });
+    if (error) {
+      console.error('[avatar] upload:', error.message);
+      throw new HttpError(500, 'UPLOAD_FAILED', 'Não foi possível salvar a foto.');
+    }
+
+    // Remove chave antiga se o caminho mudou (ex.: png → jpg)
+    if (current?.avatar_key && current.avatar_key !== key) {
+      await supabase.storage.from('avatars').remove([current.avatar_key]).catch(() => {});
+    }
+
+    await db.run('UPDATE users SET avatar_key = $1 WHERE id = $2', [key, req.user.id]);
+    const avatarUrl = await signedAvatarUrl(key);
+
+    res.json({ user: { id: req.user.id, avatarUrl } });
+  });
+
+  /** Remove a foto e volta para as iniciais. */
+  router.delete('/me/avatar', async (req, res) => {
+    const row = await db.get('SELECT avatar_key FROM users WHERE id = $1', [req.user.id]);
+    if (row?.avatar_key && supabase) {
+      await supabase.storage.from('avatars').remove([row.avatar_key]).catch(() => {});
+    }
+    await db.run('UPDATE users SET avatar_key = NULL WHERE id = $1', [req.user.id]);
+    res.status(204).end();
   });
 
   return router;
