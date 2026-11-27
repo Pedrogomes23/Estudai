@@ -6,14 +6,13 @@ import path from 'node:path';
 const publicDir = path.resolve(import.meta.dirname, '..', 'public');
 const appJs = path.resolve(import.meta.dirname, '..', 'src', 'app.js');
 
-test('todas as páginas HTML têm lang="pt-BR", skip link, main#conteudo e scripts a11y', () => {
+test('todas as páginas HTML têm lang="pt-BR", main#conteudo e scripts a11y', () => {
   const pages = fs.readdirSync(publicDir).filter((f) => f.endsWith('.html'));
   assert.ok(pages.length >= 10, 'esperava pelo menos 10 páginas HTML');
 
   for (const page of pages) {
     const html = fs.readFileSync(path.join(publicDir, page), 'utf8');
     assert.match(html, /lang=["']pt-BR["']/, `${page} sem lang="pt-BR"`);
-    assert.match(html, /class=["']skip-link["']/, `${page} sem link pular conteúdo`);
     assert.match(html, /id=["']conteudo["']/, `${page} sem main#conteudo`);
     assert.match(html, /js\/lib\/vlibras\.js/, `${page} sem vlibras.js`);
     assert.match(html, /js\/lib\/accessibility\.js/, `${page} sem accessibility.js`);

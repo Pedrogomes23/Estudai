@@ -39,7 +39,15 @@ export function createApp({ config, db, mailer }) {
             // Unity WebGL do avatar VLibras (mais restrito que unsafe-eval)
             "'wasm-unsafe-eval'",
           ],
-          'style-src': ["'self'", 'https://fonts.googleapis.com'],
+                    // CSS do site + Google Fonts + widget VLibras.
+          // 'unsafe-inline' só em style-src: o VLibras injeta <style> no DOM (risco bem menor que em script-src).
+          'style-src': [
+            "'self'",
+            "'unsafe-inline'",
+            'https://fonts.googleapis.com',
+            'https://vlibras.gov.br',
+            'https://cdn.jsdelivr.net',
+          ],
           // fontes do Google + possíveis assets tipográficos do VLibras
           'font-src': ['https://fonts.gstatic.com', 'https://vlibras.gov.br', 'https://cdn.jsdelivr.net'],
           // Supabase storage + avatares/ícones do VLibras

@@ -1,0 +1,226 @@
+warning: in the working copy of 'public/js/features/auth.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/routes/auth.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/auth.test.js', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/public/js/features/auth.js b/public/js/features/auth.js[m
+[1mindex 0993162..4da3977 100644[m
+[1m--- a/public/js/features/auth.js[m
+[1m+++ b/public/js/features/auth.js[m
+[36m@@ -68,7 +68,7 @@[m [masync function submitLogin(event) {[m
+     form.reset();[m
+     location.replace('feed.html');[m
+   } catch (err) {[m
+[31m-    const target = err.code === 'EMAIL_NOT_FOUND' ? 'li-email' : 'li-pass';[m
+[32m+[m[32m    const target = 'li-pass';[m
+     fail(target, err.message);[m
+     $(target).focus();[m
+   } finally {[m
+[1mdiff --git a/src/routes/auth.js b/src/routes/auth.js[m
+[1mindex 83b60ed..6cb5d7a 100644[m
+[1m--- a/src/routes/auth.js[m
+[1m+++ b/src/routes/auth.js[m
+[36m@@ -77,13 +77,10 @@[m [mexport function authRouter({ db, config, sessions }) {[m
+ [m
+     if (!user) {[m
+       await verifyPassword(password, DUMMY_HASH); // iguala o tempo de resposta[m
+[31m-      throw unauthorized([m
+[31m-        'EMAIL_NOT_FOUND',[m
+[31m-        'Não encontramos uma conta com esse e-mail. Crie uma conta para entrar.',[m
+[31m-      );[m
+[32m+[m[32m      throw unauthorized('INVALID_CREDENTIALS', 'E-mail ou senha incorretos.');[m
+     }[m
+     if (!(await verifyPassword(password, user.password_hash))) {[m
+[31m-      throw unauthorized('WRONG_PASSWORD', 'Senha incorreta. Tente de novo.');[m
+[32m+[m[32m      throw unauthorized('INVALID_CREDENTIALS', 'E-mail ou senha incorretos.');[m
+     }[m
+ [m
+     await sessions.destroy(req.sessionToken); // evita reaproveitar uma sessão anterior[m
+[36m@@ -131,33 +128,32 @@[m [mexport function authRouter({ db, config, sessions }) {[m
+         'Se existir uma conta com esse e-mail, enviaremos as instruções para redefinir a senha. Confira a caixa de entrada e o spam.',[m
+     };[m
+ [m
+[31m-    const user = await findByEmail(email);[m
+[31m-    if (!user) {[m
+[31m-      // Tempo parecido com o caminho que gera token e envia e-mail[m
+[32m+[m[32m    if (!mailer.enabled) {[m
+       await verifyPassword('x', DUMMY_HASH);[m
+       return res.json(generic);[m
+     }[m
+ [m
+[31m-    if (!mailer.enabled) {[m
+[31m-      throw new HttpError([m
+[31m-        503,[m
+[31m-        'MAIL_NOT_CONFIGURED',[m
+[31m-        'O envio de e-mail ainda não está configurado no servidor. Peça ao administrador para definir SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS e MAIL_FROM.',[m
+[31m-      );[m
+[32m+[m[32m    const user = await findByEmail(email);[m
+[32m+[m[32m    if (!user) {[m
+[32m+[m[32m      await verifyPassword('x', DUMMY_HASH);[m
+[32m+[m[32m      return res.json(generic);[m
+     }[m
+ [m
+[31m-    // Invalida tokens anteriores ainda não usados deste usuário[m
+[31m-    await db.run([m
+[31m-      `DELETE FROM password_reset_tokens WHERE user_id = $1 AND used_at IS NULL`,[m
+[31m-      [user.id],[m
+[31m-    );[m
+[31m-[m
+     const token = randomBytes(32).toString('base64url');[m
+     const expiresAt = Date.now() + config.passwordResetTtlMs;[m
+[31m-    await db.run([m
+[31m-      `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)`,[m
+[31m-      [user.id, sha256(token), expiresAt],[m
+[31m-    );[m
+[32m+[m
+[32m+[m[32m    await db.transaction(async (tx) => {[m
+[32m+[m[32m      // Serializa solicitações simultâneas de recuperação para a mesma conta.[m
+[32m+[m[32m      await tx.get('SELECT id FROM users WHERE id = $1 FOR UPDATE', [user.id]);[m
+[32m+[m[32m      await tx.run([m
+[32m+[m[32m        `DELETE FROM password_reset_tokens WHERE user_id = $1 AND used_at IS NULL`,[m
+[32m+[m[32m        [user.id],[m
+[32m+[m[32m      );[m
+[32m+[m[32m      await tx.run([m
+[32m+[m[32m        `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)`,[m
+[32m+[m[32m        [user.id, sha256(token), expiresAt],[m
+[32m+[m[32m      );[m
+[32m+[m[32m    });[m
+ [m
+     const resetUrl = `${config.publicAppUrl}/reset-password.html?token=${encodeURIComponent(token)}`;[m
+     try {[m
+[36m@@ -209,11 +205,28 @@[m [mexport function authRouter({ db, config, sessions }) {[m
+ [m
+     const passwordHash = await hashPassword(password);[m
+     await db.transaction(async (tx) => {[m
+[31m-      await tx.run('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, row.user_id]);[m
+[31m-      await tx.run('UPDATE password_reset_tokens SET used_at = now() WHERE id = $1', [row.id]);[m
+[32m+[m[32m      const consumed = await tx.get([m
+[32m+[m[32m        `UPDATE password_reset_tokens[m
+[32m+[m[32m         SET used_at = now()[m
+[32m+[m[32m         WHERE id = $1 AND used_at IS NULL AND expires_at > $2[m
+[32m+[m[32m         RETURNING user_id`,[m
+[32m+[m[32m        [row.id, Date.now()],[m
+[32m+[m[32m      );[m
+[32m+[m
+[32m+[m[32m      if (!consumed) {[m
+[32m+[m[32m        throw badRequest([m
+[32m+[m[32m          'Este link de recuperação é inválido ou já expirou. Solicite uma nova redefinição.',[m
+[32m+[m[32m          { token: 'Link inválido ou expirado.' },[m
+[32m+[m[32m        );[m
+[32m+[m[32m      }[m
+[32m+[m
+[32m+[m[32m      await tx.run('UPDATE users SET password_hash = $1 WHERE id = $2', [[m
+[32m+[m[32m        passwordHash,[m
+[32m+[m[32m        consumed.user_id,[m
+[32m+[m[32m      ]);[m
+       await tx.run([m
+         `DELETE FROM password_reset_tokens WHERE user_id = $1 AND id <> $2 AND used_at IS NULL`,[m
+[31m-        [row.user_id, row.id],[m
+[32m+[m[32m        [consumed.user_id, row.id],[m
+       );[m
+     });[m
+ [m
+[1mdiff --git a/tests/auth.test.js b/tests/auth.test.js[m
+[1mindex ef14a8e..03b4393 100644[m
+[1m--- a/tests/auth.test.js[m
+[1m+++ b/tests/auth.test.js[m
+[36m@@ -34,14 +34,15 @@[m [mdescribe('autenticação', () => {[m
+     assert.equal((await c.post('/api/auth/register', { ...user, name: '   ' })).status, 400);[m
+   });[m
+ [m
+[31m-  it('distingue e-mail inexistente de senha incorreta', async () => {[m
+[32m+[m[32m  it('não revela se o e-mail existe durante o login', async () => {[m
+     const c = srv.client();[m
+     const a = await c.post('/api/auth/login', { email: 'ninguem@exemplo.com', password: 'qualquer-coisa' });[m
+[31m-    assert.equal(a.status, 401);[m
+[31m-    assert.equal(a.data.error.code, 'EMAIL_NOT_FOUND');[m
+     const b = await c.post('/api/auth/login', { email: user.email, password: 'errada-errada' });[m
+[32m+[m[32m    assert.equal(a.status, 401);[m
+     assert.equal(b.status, 401);[m
+[31m-    assert.equal(b.data.error.code, 'WRONG_PASSWORD');[m
+[32m+[m[32m    assert.equal(a.data.error.code, 'INVALID_CREDENTIALS');[m
+[32m+[m[32m    assert.equal(b.data.error.code, 'INVALID_CREDENTIALS');[m
+[32m+[m[32m    assert.equal(a.data.error.message, b.data.error.message);[m
+   });[m
+ [m
+   it('login cria cookie HttpOnly e /me identifica o usuário', async () => {[m
+[36m@@ -100,3 +101,81 @@[m [mdescribe('limite de tentativas', () => {[m
+     }[m
+   });[m
+ });[m
+[32m+[m
+[32m+[m
+[32m+[m[32mdescribe('segurança da recuperação de senha', () => {[m
+[32m+[m[32m  let srv;[m
+[32m+[m
+[32m+[m[32m  before(async () => {[m
+[32m+[m[32m    srv = await startTestServer();[m
+[32m+[m[32m  });[m
+[32m+[m
+[32m+[m[32m  after(async () => {[m
+[32m+[m[32m    await srv.close();[m
+[32m+[m[32m  });[m
+[32m+[m
+[32m+[m[32m  it('permite consumir um token somente uma vez em requisições simultâneas', async () => {[m
+[32m+[m[32m    const credentials = {[m
+[32m+[m[32m      name: 'Usuário Recuperação',[m
+[32m+[m[32m      email: 'recuperacao@exemplo.com',[m
+[32m+[m[32m      password: 'senha-original-123',[m
+[32m+[m[32m    };[m
+[32m+[m
+[32m+[m[32m    const registration = await srv.client().post('/api/auth/register', credentials);[m
+[32m+[m[32m    assert.equal(registration.status, 201);[m
+[32m+[m
+[32m+[m[32m    const { createHash, randomBytes } = await import('node:crypto');[m
+[32m+[m[32m    const token = randomBytes(32).toString('base64url');[m
+[32m+[m[32m    const tokenHash = createHash('sha256').update(token).digest('hex');[m
+[32m+[m
+[32m+[m[32m    await srv.db.run([m
+[32m+[m[32m      'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',[m
+[32m+[m[32m      [registration.data.user.id, tokenHash, Date.now() + 60_000],[m
+[32m+[m[32m    );[m
+[32m+[m
+[32m+[m[32m    const passwords = ['senha-nova-111', 'senha-nova-222'];[m
+[32m+[m[32m    const results = await Promise.all([m
+[32m+[m[32m      passwords.map((password) =>[m
+[32m+[m[32m        srv.client().post('/api/auth/reset-password', { token, password }),[m
+[32m+[m[32m      ),[m
+[32m+[m[32m    );[m
+[32m+[m
+[32m+[m[32m    assert.deepEqual([m
+[32m+[m[32m      results.map((result) => result.status).sort((a, b) => a - b),[m
+[32m+[m[32m      [200, 400],[m
+[32m+[m[32m    );[m
+[32m+[m
+[32m+[m[32m    const successfulIndex = results.findIndex((result) => result.status === 200);[m
+[32m+[m[32m    assert.notEqual(successfulIndex, -1);[m
+[32m+[m
+[32m+[m[32m    const { verifyPassword } = await import('../src/lib/passwords.js');[m
+[32m+[m[32m    const savedUser = await srv.db.get([m
+[32m+[m[32m      'SELECT password_hash FROM users WHERE id = $1',[m
+[32m+[m[32m      [registration.data.user.id],[m
+[32m+[m[32m    );[m
+[32m+[m
+[32m+[m[32m    assert.equal([m
+[32m+[m[32m      await verifyPassword(passwords[successfulIndex], savedUser.password_hash),[m
+[32m+[m[32m      true,[m
+[32m+[m[32m    );[m
+[32m+[m
+[32m+[m[32m    const savedToken = await srv.db.get([m
+[32m+[m[32m      'SELECT used_at FROM password_reset_tokens WHERE token_hash = $1',[m
+[32m+[m[32m      [tokenHash],[m
+[32m+[m[32m    );[m
+[32m+[m[32m    assert.ok(savedToken.used_at);[m
+[32m+[m[32m  });[m
+[32m+[m
+[32m+[m[32m  it('não revela se existe conta quando o SMTP não está configurado', async () => {[m
+[32m+[m[32m    const existing = await srv.client().post('/api/auth/forgot-password', {[m
+[32m+[m[32m      email: 'recuperacao@exemplo.com',[m
+[32m+[m[32m    });[m
+[32m+[m[32m    const missing = await srv.client().post('/api/auth/forgot-password', {[m
+[32m+[m[32m      email: 'nao-existe@exemplo.com',[m
+[32m+[m[32m    });[m
+[32m+[m
+[32m+[m[32m    assert.equal(existing.status, 200);[m
+[32m+[m[32m    assert.equal(missing.status, 200);[m
+[32m+[m[32m    assert.deepEqual(existing.data, missing.data);[m
+[32m+[m[32m  });[m
+[32m+[m[32m});[m

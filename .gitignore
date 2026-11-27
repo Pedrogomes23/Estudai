@@ -1,4 +1,4 @@
-node_modules/
+﻿node_modules/
 data/
 .env
 .env.*
@@ -9,22 +9,17 @@ coverage/
 .fly/
 dist/
 build/
-
-# Certificados e chaves privadas (HTTPS): nunca versionar.
 certs/
 *.pem
 *.key
 
-.env
-
-.env
-# Backups e arquivos temporários
+# Backups e temporários
 backup-*/
 backups-*/
 *.backup*
 *.dump
 
-# Auditorias e scripts de patch pontuais
+# Auditorias e scripts pontuais
 auditoria-*
 aplicar-*.mjs
 corrigir-*.mjs
