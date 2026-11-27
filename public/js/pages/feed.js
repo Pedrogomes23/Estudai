@@ -269,6 +269,9 @@ function renderNotifications(data) {
     .join('');
 }
 
+// Um <div> recém-criado nasce "não escondido", por isso a trava é controlada por esta variável.
+let modalLocked = false;
+
 function openNotifModal(title, body, items = []) {
   let modal = document.getElementById('notif-modal');
   if (!modal) {
@@ -284,7 +287,8 @@ function openNotifModal(title, body, items = []) {
       </div>`;
     document.body.append(modal);
     const close = () => {
-      if (modal.hidden) return;
+      if (!modalLocked) return;
+      modalLocked = false;
       modal.hidden = true;
       unlockScroll();
     };
@@ -309,7 +313,10 @@ function openNotifModal(title, body, items = []) {
     }),
   );
   list.hidden = items.length === 0;
-  if (modal.hidden) lockScroll();
+  if (!modalLocked) {
+    modalLocked = true;
+    lockScroll();
+  }
   modal.hidden = false;
 }
 
