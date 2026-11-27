@@ -310,7 +310,20 @@ function route() {
   const onCommunities = location.hash === '#comunidades';
   setTab(onCommunities ? 'com' : 'mat');
   syncSidebar(onCommunities ? 'communities' : 'materials');
+  paintHeading(onCommunities);
   if (onCommunities) loadCommunities();
+}
+
+/** Cada link do menu mostra só a sua lista: o título e o texto mudam conforme a tela. */
+function paintHeading(onCommunities) {
+  const title = onCommunities ? 'Explorar comunidades' : 'Explorar materiais';
+  const sub = onCommunities
+    ? 'Participe de comunidades de estudo ou crie a sua.'
+    : 'Adicione apostilas para a turma e baixe as dos colegas.';
+  if ($('page-title')) $('page-title').textContent = title;
+  if ($('page-sub')) $('page-sub').textContent = sub;
+  if ($('topbar-title')) $('topbar-title').textContent = title;
+  document.title = `${title} – Estudaí!`;
 }
 
 /** Marca na barra lateral qual dos dois links (materiais / comunidades) está ativo. */

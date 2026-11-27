@@ -159,7 +159,7 @@
       <button class="icon-btn menu-toggle" id="menu-toggle" aria-label="Abrir menu">
         <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
-      <strong style="font-family:'Baloo 2',sans-serif;font-size:18px">Plataforma</strong>
+      <strong style="font-family:'Baloo 2',sans-serif;font-size:18px" id="topbar-title">Explorar materiais</strong>
       <div class="actions">
         <span class="hi" id="hi" style="color:var(--yel);font-weight:700;font-size:14px"></span>
         <a class="icon-btn" href="profile.html" aria-label="Perfil">
@@ -170,12 +170,12 @@
     <div class="content">
 <div class="w" style="padding:0;max-width:none">
   <div class="head" id="page-head">
-    <h1>Sua plataforma de estudos</h1>
-    <p>Adicione apostilas para a turma, baixe as dos colegas e participe de comunidades de estudo, ou crie a sua.</p>
+    <h1 id="page-title">Explorar materiais</h1>
+    <p id="page-sub">Adicione apostilas para a turma e baixe as dos colegas.</p>
   </div>
 
   <div id="v-main">
-  <div class="tabs" role="tablist">
+  <div class="tabs" role="tablist" hidden aria-hidden="true">
     <button class="tab" role="tab" id="t-mat" aria-selected="true" data-tab="mat">Apostilas</button>
     <button class="tab" role="tab" id="t-com" aria-selected="false" data-tab="com">Comunidades</button>
   </div>
