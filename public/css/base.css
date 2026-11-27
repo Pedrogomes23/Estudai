@@ -145,3 +145,6 @@ summary::-webkit-details-marker {
     scroll-behavior: auto !important;
   }
 }
+
+/* Página de trás parada enquanto um modal está aberto */
+body.scroll-locked{overflow:hidden}

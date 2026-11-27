@@ -1,3 +1,5 @@
+import { lockScroll, unlockScroll } from './scroll-lock.js';
+
 let activeDialog = null;
 
 export function confirmDialog({
@@ -58,6 +60,7 @@ export function confirmDialog({
     if (!overlay.isConnected) return;
     document.removeEventListener('keydown', onKeyDown);
     overlay.remove();
+    unlockScroll();
     activeDialog = null;
     if (previousFocus?.isConnected) previousFocus.focus();
     settle(confirmed);
@@ -87,6 +90,7 @@ export function confirmDialog({
   });
 
   document.addEventListener('keydown', onKeyDown);
+  lockScroll();
   document.body.appendChild(overlay);
   requestAnimationFrame(() => cancel.focus());
 

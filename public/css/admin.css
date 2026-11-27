@@ -173,3 +173,12 @@ td.empty{color:var(--mut);text-align:center;padding:24px}
 .ann-del:focus-visible{outline:3px solid var(--pur);outline-offset:3px}
 .ann-del:disabled{opacity:.55;cursor:not-allowed;transform:none}
 @media (prefers-reduced-motion:reduce){.ann-del{transition:none}}
+
+/* Celular: histórico de avisos */
+@media (max-width:520px){
+  .ann-item{padding:12px}
+  .ann-item-head{flex-wrap:wrap;gap:8px}
+  .ann-item-head strong{flex:1 1 160px;min-width:0;overflow-wrap:anywhere}
+  .ann-del{min-height:40px;padding:8px 16px}
+  .ann-item-body{overflow-wrap:anywhere}
+}

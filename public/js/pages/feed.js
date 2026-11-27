@@ -1,5 +1,6 @@
 import { ApiError, api } from '../lib/api.js';
 import { $, debounce, escapeHtml } from '../lib/dom.js';
+import { lockScroll, unlockScroll } from '../lib/scroll-lock.js';
 import { initSidebar, setSidebarUser } from '../lib/sidebar.js';
 
 const state = {
@@ -236,16 +237,23 @@ function renderActivities(items) {
     .join('');
 }
 
-function renderNotifications(data) {
+let unreadCount = 0;
+
+/** Atualiza o número vermelho do sininho. */
+function setUnread(value) {
+  unreadCount = Math.max(0, value);
   const badge = $('notif-badge');
-  const list = $('notif-list');
-  const unread = data.unread || 0;
-  if (unread > 0) {
+  if (unreadCount > 0) {
     badge.hidden = false;
-    badge.textContent = unread > 99 ? '99+' : String(unread);
+    badge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
   } else {
     badge.hidden = true;
   }
+}
+
+function renderNotifications(data) {
+  const list = $('notif-list');
+  setUnread(data.unread || 0);
   if (!data.items?.length) {
     list.innerHTML = '<div class="empty" style="padding:16px">Nenhuma notificação.</div>';
     return;
@@ -276,7 +284,9 @@ function openNotifModal(title, body, items = []) {
       </div>`;
     document.body.append(modal);
     const close = () => {
+      if (modal.hidden) return;
       modal.hidden = true;
+      unlockScroll();
     };
     modal.querySelector('.notif-modal-ok').addEventListener('click', close);
     modal.addEventListener('click', (e) => {
@@ -299,6 +309,7 @@ function openNotifModal(title, body, items = []) {
     }),
   );
   list.hidden = items.length === 0;
+  if (modal.hidden) lockScroll();
   modal.hidden = false;
 }
 
@@ -496,15 +507,23 @@ document.addEventListener('click', (e) => {
 
   if (e.target.closest('#notif-read-all')) {
     api.notifications.markAllRead().then(() => {
-      $('notif-badge').hidden = true;
+      setUnread(0);
       document.querySelectorAll('.notif-item').forEach((el) => el.classList.remove('unread'));
     });
   }
 
   const notifItem = e.target.closest('.notif-item');
   if (notifItem) {
-    api.notifications.markRead(notifItem.dataset.id).catch(() => {});
-    notifItem.classList.remove('unread');
+    // Ao abrir uma notificação não lida, ela vira lida e o número do sininho diminui.
+    if (notifItem.classList.contains('unread')) {
+      notifItem.classList.remove('unread');
+      setUnread(unreadCount - 1);
+      api.notifications.markRead(notifItem.dataset.id).catch(() => {
+        // Se o servidor não confirmou, volta ao estado anterior.
+        notifItem.classList.add('unread');
+        setUnread(unreadCount + 1);
+      });
+    }
     // Atualização do site: abre balãozinho com a mensagem completa
     if (notifItem.dataset.type === 'site_update') {
       const { title, body, link } = notifItem.dataset;
@@ -518,14 +537,6 @@ document.addEventListener('click', (e) => {
       } else {
         openNotifModal(title, body);
       }
-    }
-    // Atualiza badge se não restar unread
-    const still = document.querySelectorAll('.notif-item.unread').length;
-    const badge = $('notif-badge');
-    if (still === 0) badge.hidden = true;
-    else {
-      badge.hidden = false;
-      badge.textContent = still > 99 ? '99+' : String(still);
     }
   }
 });
