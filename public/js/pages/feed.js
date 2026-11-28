@@ -247,7 +247,8 @@ function renderActivities(items) {
   const labels = {
     upload: 'Você enviou',
     download: 'Você baixou',
-    join: 'Entrou em',
+    join: 'Você entrou em',
+    leave: 'Você saiu de',
     community_material: 'Novo material em',
   };
   box.innerHTML = items

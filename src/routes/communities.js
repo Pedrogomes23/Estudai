@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { HttpError, badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { notifyUser } from '../lib/notifications.js';
+import { recordActivity } from '../lib/activities.js';
 import { parse, parseId, schemas } from '../lib/validation.js';
 import { requireAuth } from '../middleware/auth.js';
 import { isConstraintError } from '../db/index.js';
@@ -252,6 +253,10 @@ export function communitiesRouter({ db, config }) {
     const id = parseId(req.params.id);
     await load(id, req.user.id);
     const inserted = await join(id, req.user.id);
+    if (inserted > 0) {
+      const joinedTo = await db.get('SELECT name FROM communities WHERE id = $1', [id]);
+      await recordActivity(db, { userId: req.user.id, type: 'join', title: joinedTo?.name });
+    }
 
     // Notifica o criador da comunidade (sem som; só no sininho)
     if (inserted > 0) {
@@ -279,8 +284,14 @@ export function communitiesRouter({ db, config }) {
 
   router.delete('/:id/membership', async (req, res) => {
     const id = parseId(req.params.id);
-    await load(id, req.user.id);
-    await db.run('DELETE FROM community_members WHERE community_id = $1 AND user_id = $2', [id, req.user.id]);
+    const community = await load(id, req.user.id);
+    const removed = await db.run('DELETE FROM community_members WHERE community_id = $1 AND user_id = $2', [
+      id,
+      req.user.id,
+    ]);
+    if (removed > 0) {
+      await recordActivity(db, { userId: req.user.id, type: 'leave', title: community.name });
+    }
     res.json({ item: toApi(await load(id, req.user.id)) });
   });
 
