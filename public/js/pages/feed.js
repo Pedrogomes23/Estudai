@@ -41,7 +41,7 @@ async function boot() {
 
   try {
     // Tudo sai ao mesmo tempo (antes: 2 pedidos e, só depois, mais 2 em fila = mais espera).
-    const activitiesReq = api.profile.activities().catch(() => []);
+    const activitiesReq = fetchActivities();
     const notificationsReq = api.notifications
       .list()
       .catch(() => ({ items: [], unread: 0 }));
@@ -61,7 +61,7 @@ async function boot() {
     renderFeed();
 
     await Promise.all([
-      activitiesReq.then(renderActivities),
+      activitiesReq.then(showActivities),
       notificationsReq.then(renderNotifications),
     ]);
     startNotificationPolling();
@@ -209,6 +209,35 @@ function renderFeed() {
     )
     .join('');
 }
+/** Busca as atividades recentes. Devolve null se der erro (para não confundir com "sem atividades"). */
+async function fetchActivities() {
+  try {
+    return await api.profile.activities();
+  } catch (err) {
+    console.error('[atividades]', err);
+    return null;
+  }
+}
+
+function showActivities(items) {
+  if (items === null) {
+    $('activities').innerHTML = '<div class="empty">Não foi possível carregar suas atividades agora.</div>';
+    return;
+  }
+  renderActivities(items);
+}
+
+let lastActivitiesRefresh = 0;
+/** Recarrega a lista da lateral (usado depois de baixar/excluir e ao voltar para a aba/página). */
+async function refreshActivities({ force = false } = {}) {
+  const now = Date.now();
+  if (!force && now - lastActivitiesRefresh < 4000) return;
+  lastActivitiesRefresh = now;
+  const items = await fetchActivities();
+  // Em atualização silenciosa, se falhar, mantém o que já está na tela.
+  if (items !== null) renderActivities(items);
+}
+
 function renderActivities(items) {
   const box = $('activities');
   if (!items?.length) {
@@ -531,6 +560,7 @@ async function downloadMaterial(id) {
       state.stats.downloads = (state.stats.downloads || 0) + 1;
       renderStats();
     }
+    refreshActivities({ force: true });
   } catch (err) {
     handleError(err, 'Não foi possível baixar.');
   }
@@ -544,10 +574,20 @@ async function deleteMaterial(id) {
     state.materials = state.materials.filter((m) => m.id !== id);
     renderFeed();
     say('Material excluído.');
+    refreshActivities({ force: true });
   } catch (err) {
     handleError(err, 'Não foi possível excluir.');
   }
 }
+
+/* ---------- Atividades: atualizar ao voltar para a página ---------- */
+
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted && state.me) refreshActivities({ force: true });
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && state.me) refreshActivities();
+});
 
 /* ---------- Events ---------- */
 
