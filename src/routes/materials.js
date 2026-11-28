@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 import { HttpError, badRequest, forbidden, notFound } from '../lib/errors.js';
 import { CATEGORIES, MATERIAL_AREAS, parse, parseId, schemas } from '../lib/validation.js';
 import { requireAuth } from '../middleware/auth.js';
+import { recordActivity } from '../lib/activities.js';
 
 const ALLOWED_EXT = new Set(['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.odt', '.txt']);
 const MAX_LIST = 500;
@@ -199,6 +200,7 @@ export function materialsRouter({ db, config }) {
         ],
       );
 
+      await recordActivity(db, { userId: req.user.id, type: 'upload', title: data.title });
       res.status(201).json({ item: toApi(await byId(id, req.user.id)) });
     } catch (err) {
       if (localStorage) {
@@ -236,6 +238,7 @@ export function materialsRouter({ db, config }) {
         );
       });
 
+      await recordActivity(db, { userId: req.user.id, type: 'download', title: row.title });
       return res.download(filePath, row.file_name);
     }
 
@@ -258,6 +261,7 @@ export function materialsRouter({ db, config }) {
       );
     });
 
+    await recordActivity(db, { userId: req.user.id, type: 'download', title: row.title });
     res.redirect(data.signedUrl);
   });
 

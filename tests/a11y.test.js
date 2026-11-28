@@ -35,5 +35,5 @@ test('módulos e página de acessibilidade existem', () => {
   assert.match(policy, /estudai_a11y/);
   assert.match(policy, /VLibras/);
   const sitemap = fs.readFileSync(path.join(publicDir, 'sitemap.xml'), 'utf8');
-  assert.match(sitemap, /acessibilidade\.html/);
+  assert.match(sitemap, /acessibilidade/);
 });

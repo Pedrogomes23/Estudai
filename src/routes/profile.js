@@ -3,6 +3,7 @@ import multer from 'multer';
 import { createClient } from '@supabase/supabase-js';
 import { badRequest, HttpError } from '../lib/errors.js';
 import { requireAuth } from '../middleware/auth.js';
+import { listActivities } from '../lib/activities.js';
 
 const AVATAR_MAX_BYTES = 4 * 1024 * 1024; // 4 MB
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
@@ -62,6 +63,10 @@ function mapUser(row, avatarUrl) {
 export function profileRouter({ db }) {
   const router = Router();
   router.use(requireAuth);
+
+  router.get('/activities', async (req, res) => {
+    res.json({ items: await listActivities(db, req.user.id) });
+  });
 
   router.get('/me', async (req, res) => {
     let row;
